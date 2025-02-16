@@ -20,4 +20,4 @@ All contributors must abide by our [Code of Conduct](./CODE_OF_CONDUCT.md) to ma
 ## By Contributing
 By contributing to this project, you agree to adhere to these guidelines to help create a collaborative, inclusive, and efficient environment for all contributors.
 
-The contribution guidelines are documented in this `CONTRIBUTING.md` file, located in the project root. If you have any questions, feel free to open an issue for clarification.
+If you have any questions, feel free to open an issue for clarification.
