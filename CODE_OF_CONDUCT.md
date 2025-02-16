@@ -26,4 +26,3 @@ We will adapt examples from the following existing codes of conduct:
 - [Python Community Code of Conduct](https://www.python.org/psf/conduct/)
 - [Tidyverse Code of Conduct](https://github.com/tidyverse/tidyverse.org/blob/master/CODE_OF_CONDUCT.md)
 
-The Code of Conduct will be documented in a file named `CODE_OF_CONDUCT.md` in the project root.
