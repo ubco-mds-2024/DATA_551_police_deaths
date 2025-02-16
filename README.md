@@ -50,3 +50,6 @@ The dashboard is designed to be **clean and user-friendly**, ensuring a seamless
 ---
 
 By incorporating diverse visualization types and interactive features, this dashboard will serve as a **powerful tool** for researchers, policymakers, and educators to explore historical trends, uncover patterns, and derive actionable insights from the data.
+
+![PNG image-5765E9E27C24-1](https://github.com/user-attachments/assets/0d39dea6-3f95-4fa7-bed7-d1e6b1fd100c)
+
