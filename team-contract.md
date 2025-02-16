@@ -32,4 +32,4 @@ The team work contract outlines the collaboration methods among team members and
 - Team members should notify the group in advance about unavailable times (e.g., evenings or weekends).
 
 ## Updates
-The team work contract will be stored in a file named `team-contract.md` in the project root and updated only with the consensus of all team members.
+The team work contract will be updated only with the consensus of all team members.
