@@ -5,6 +5,7 @@ import pandas as pd
 import altair as alt
 from vega_datasets import data as vega_data
 import webbrowser
+import plotly.express as px
 
 # =================================================
 # 1. Load the CSV data
@@ -101,41 +102,24 @@ def create_time_series(data, x_col, y_col, title):
     )
     return chart
 
-def create_us_map(filtered_data):
-    """Builds a US map showing death counts by state."""
-    if filtered_data.empty:
-        return None
-    
-    # Aggregate number of deaths by state/fips
-    state_counts = (
-        filtered_data
-        .groupby(['state', 'fips'], as_index=False)
-        .size()  # creates a column named 'size'
-        .rename(columns={'size': 'Deaths'})
+
+def create_us_heatmap(filtered_data):
+    # Count occurrences of each state
+    state_counts = filtered_data["state"].value_counts().reset_index()
+    state_counts.columns = ["state", "count"]  # rename column
+    state_counts["state"] = state_counts["state"].str.strip()
+    print(state_counts)
+    # Create the choropleth map
+    fig = px.choropleth(
+        state_counts,
+        locations="state",
+        locationmode="USA-states",
+        color="count",
+        color_continuous_scale="reds",
+        scope="usa",
+        title="US State-Level Heatmap",
     )
-
-    # Drop rows where fips is NaN (meaning the abbreviation didn't match)
-    state_counts = state_counts.dropna(subset=['fips'])
-
-    # Load US states topo data
-    states = alt.topo_feature(vega_data.us_10m.url, feature='states')
-
-    # Build the map
-    map_chart = (
-        alt.Chart(states)
-        .mark_geoshape()
-        .encode(
-            color=alt.Color('Deaths:Q', scale=alt.Scale(scheme='blues')),
-            tooltip=['state:N', 'Deaths:Q']
-        )
-        .transform_lookup(
-            lookup='id',  # the FIPS code in the topojson
-            from_=alt.LookupData(state_counts, 'fips', ['Deaths', 'state'])
-        )
-        .project('albersUsa')
-        .properties(width=500, height=400)
-    )
-    return map_chart
+    return fig
 
 # =================================================
 # 8. Sidebar: user filters
@@ -146,12 +130,11 @@ sidebar = html.Div([
         id='year-filter',
         min=data['year'].min(),
         max=data['year'].max(),
-        marks={i: str(i) for i in range(data['year'].min(), data['year'].max()+1, 50)},
+        marks={i: str(i) for i in range(data['year'].min(), data['year'].max()+1, 20)},
         step=1,
         value=[data['year'].min(), data['year'].max()],
-        tooltip={"placement": "bottom", "always_visible": True}
+        tooltip={"placement": "bottom", "always_visible": False}
     ),
-    html.Div(id='year-display', style={"font-weight": "bold", "margin-top": "5px"}),
     html.Br(),
     html.Label("Filter by Cause"),
     dcc.Dropdown(
@@ -201,7 +184,7 @@ app.layout = dbc.Container([
         Output('time-series', 'srcDoc'),
         Output('us-map', 'srcDoc'),
         Output('extra-chart', 'srcDoc'),
-        Output('summary-stats', 'children'),
+        Output('summary-stats', 'children')
     ],
     [
         Input('year-filter', 'value'),
@@ -209,7 +192,6 @@ app.layout = dbc.Container([
         Input('state-filter', 'value')
     ]
 )
-
 def render_dashboard(year_filter, cause_filter, state_filter):
     # Copy the original data
     filtered_data = data.copy()
@@ -228,7 +210,7 @@ def render_dashboard(year_filter, cause_filter, state_filter):
     # Filter by state
     if state_filter:
         filtered_data = filtered_data[filtered_data['state'].isin(state_filter)]
-
+        #print(filtered_data["state"].value_counts())
     # If nothing remains after filtering
     if filtered_data.empty:
         return "", "", "", "", html.H3("No data available for the selected filters.")
@@ -260,7 +242,7 @@ def render_dashboard(year_filter, cause_filter, state_filter):
     # Build charts
     bar_chart_obj = create_bar_chart(cause_data, 'cause_short', 'Count', 'Main Causes')
     time_series_obj = create_time_series(time_series_data, 'year', 'Count', 'Deaths Over Time')
-    us_map_obj = create_us_map(filtered_data)
+    us_map_obj = create_us_heatmap(filtered_data)
 
     # Convert Altair charts to HTML
     bar_chart_html = bar_chart_obj.to_html() if bar_chart_obj else ""
@@ -270,9 +252,6 @@ def render_dashboard(year_filter, cause_filter, state_filter):
     # "extra-chart" is empty
     return bar_chart_html, time_series_html, us_map_html, "", summary
 
-
-def update_year_display(year_range):
-    return f"Selected Years: {year_range[0]} - {year_range[1]}"
 # =================================================
 # 12. Launch the app: only open one browser window
 # =================================================
