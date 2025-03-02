@@ -75,8 +75,6 @@ def create_bar_chart(data, x_col, y_col, title):
     """Builds a bar chart."""
     if data.empty:
         return None
-    agg_data = data[x_col].value_counts().reset_index()
-    print(agg_data)
     chart = (
         alt.Chart(data)
         .mark_bar()
@@ -113,7 +111,7 @@ def create_us_heatmap(filtered_data):
     state_counts = filtered_data["state"].value_counts().reset_index()
     state_counts.columns = ["state", "count"]  # rename column
     state_counts["state"] = state_counts["state"].str.strip()
-    #print(state_counts)
+    print(state_counts)
     # Create the choropleth map
     fig = px.choropleth(
         state_counts,
@@ -122,7 +120,7 @@ def create_us_heatmap(filtered_data):
         color="count",
         color_continuous_scale="reds",
         scope="usa",
-        title="US State-Level Heatmap",
+        title="Mapping Fallen Officers: U.S. Deaths by State",
     )
     return fig
 
@@ -130,6 +128,23 @@ def create_us_heatmap(filtered_data):
 # =================================================
 # 8. Sidebar: user filters
 # =================================================
+def create_multiselect_dropdown(id, options):
+    return html.Div([
+        dcc.Checklist(
+            id=id,
+            options=options,
+            value=[opt['value'] for opt in options[1:]],
+            inline=False,
+            inputStyle={"margin-right": "5px"}
+        )
+    ], style={"max-height": "200px", "overflow-y": "auto", "border": "1px solid #ccc", "padding": "5px"})
+
+
+cause_options = [{'label': 'Select All', 'value': 'ALL'}] + [{'label': c, 'value': c} for c in
+                                                             sorted(data['cause_short'].unique())]
+state_options = [{'label': 'Select All', 'value': 'ALL'}] + [{'label': s, 'value': s} for s in
+                                                             sorted(data['state'].unique())]
+
 sidebar = html.Div([
     html.Label("Filter by Year"),
     dcc.RangeSlider(
@@ -144,20 +159,10 @@ sidebar = html.Div([
     html.Div(id='year-display', style={"font-weight": "bold", "margin-top": "5px"}),
     html.Br(),
     html.Label("Filter by Cause"),
-    dcc.Dropdown(
-        id='cause-filter',
-        options=[{'label': c, 'value': c} for c in sorted(data['cause_short'].unique())],
-        multi=True,
-        placeholder="Select Cause(s)"
-    ),
+    create_multiselect_dropdown('cause-filter', cause_options),
     html.Br(),
     html.Label("Filter by State"),
-    dcc.Dropdown(
-        id='state-filter',
-        options=[{'label': s, 'value': s} for s in sorted(data['state'].unique())],
-        multi=True,
-        placeholder="Select State(s)"
-    )
+    create_multiselect_dropdown('state-filter', state_options)
 ])
 
 # =================================================
@@ -174,6 +179,7 @@ app.layout = dbc.Container([
     dbc.Row([
         dbc.Col(sidebar, width=3),
         dbc.Col(html.Iframe(id='bar-chart', style={'width': '100%', 'height': '400px'}), width=4),
+        dbc.Col(html.Iframe(id='bar-chart2', style={'width': '100%', 'height': '400px'}), width=4),
         dbc.Col(html.Iframe(id='time-series', style={'width': '100%', 'height': '400px'}), width=4)
     ]),
     dbc.Row([
@@ -187,8 +193,29 @@ app.layout = dbc.Container([
 # 11. Callback: Update charts based on filters
 # =================================================
 @app.callback(
+    Output('cause-filter', 'value'),
+    Input('cause-filter', 'value')
+)
+def update_cause_filter(selected_values):
+    if 'ALL' in selected_values:
+        return [opt['value'] for opt in cause_options[1:]] if len(selected_values) == 1 else []
+    return selected_values
+
+
+@app.callback(
+    Output('state-filter', 'value'),
+    Input('state-filter', 'value')
+)
+def update_state_filter(selected_values):
+    if 'ALL' in selected_values:
+        return [opt['value'] for opt in state_options[1:]] if len(selected_values) == 1 else []
+    return selected_values
+
+
+@app.callback(
     [
         Output('bar-chart', 'srcDoc'),
+        Output('bar-chart2', 'srcDoc'),
         Output('time-series', 'srcDoc'),
         Output('us-map', 'srcDoc'),
         Output('extra-chart', 'srcDoc'),
@@ -212,14 +239,13 @@ def render_dashboard(year_filter, cause_filter, state_filter):
         ]
 
     # Filter by cause
-    if cause_filter:
+    if 'ALL' not in cause_filter:
         filtered_data = filtered_data[filtered_data['cause_short'].isin(cause_filter)]
 
     # Filter by state
-    if state_filter:
+    if 'ALL' not in state_filter:
         filtered_data = filtered_data[filtered_data['state'].isin(state_filter)]
-        # print(filtered_data["state"].value_counts())
-    # If nothing remains after filtering
+
     if filtered_data.empty:
         return "", "", "", "", html.H3("No data available for the selected filters.")
 
@@ -239,6 +265,13 @@ def render_dashboard(year_filter, cause_filter, state_filter):
         .rename(columns={'size': 'Count'})
     )
 
+    dept_data = (
+        filtered_data
+        .groupby('dept', as_index=False)
+        .size()
+        .rename(columns={'size': 'Count'})
+    )
+
     # Prepare data for the time series (by year)
     time_series_data = (
         filtered_data
@@ -248,17 +281,19 @@ def render_dashboard(year_filter, cause_filter, state_filter):
     )
 
     # Build charts
-    bar_chart_obj = create_bar_chart(cause_data, 'cause_short', 'Count', 'Main Causes')
+    bar_chart_obj = create_bar_chart(cause_data.sort_values(by='Count', ascending=False).head(10), 'cause_short', 'Count', 'Top 10 death causes')
+    bar_chart_obj_2 = create_bar_chart(dept_data.sort_values(by='Count', ascending=False).head(10), 'dept', 'Count', 'Top 10 departments')
     time_series_obj = create_time_series(time_series_data, 'year', 'Count', 'Deaths Over Time')
     us_map_obj = create_us_heatmap(filtered_data)
 
     # Convert Altair charts to HTML
     bar_chart_html = bar_chart_obj.to_html() if bar_chart_obj else ""
+    bar_chart2_html = bar_chart_obj_2.to_html() if bar_chart_obj_2 else ""
     time_series_html = time_series_obj.to_html() if time_series_obj else ""
     us_map_html = us_map_obj.to_html() if us_map_obj else ""
 
     # "extra-chart" is empty
-    return bar_chart_html, time_series_html, us_map_html, "", summary
+    return bar_chart_html,bar_chart2_html, time_series_html, us_map_html, "", summary
 
 
 def update_year_display(year_range):
