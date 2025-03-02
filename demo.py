@@ -146,8 +146,6 @@ canine_filter = html.Div([
     ])
 ], style={"text-align": "right", "margin-bottom": "10px"})
 
-
-
 sidebar = html.Div([
     html.Label("Filter by Year"),
     dcc.RangeSlider(
@@ -169,7 +167,6 @@ sidebar = html.Div([
 ])
 
 
-
 # =================================================
 # 9. Summary stats area
 # =================================================
@@ -183,22 +180,18 @@ app.layout = dbc.Container([
         dbc.Col(html.H1("Police Officer Deaths Dashboard"), width=9),
         dbc.Col(canine_filter, width=3, style={"text-align": "right"})  # Aligns to top-right
     ], align="center", className="mb-3"),
-    
     dbc.Row([dbc.Col(summary_section, width=12)]),
-
     dbc.Row([
         dbc.Col(sidebar, width=3),
         dbc.Col(html.Iframe(id='bar-chart', style={'width': '100%', 'height': '400px'}), width=4),
         dbc.Col(html.Iframe(id='bar-chart2', style={'width': '100%', 'height': '400px'}), width=4),
         dbc.Col(html.Iframe(id='time-series', style={'width': '100%', 'height': '400px'}), width=4)
     ]),
-
     dbc.Row([
         dbc.Col(html.Iframe(id='us-map', style={'width': '100%', 'height': '400px'}), width=6),
         dbc.Col(html.Iframe(id='extra-chart', style={'width': '100%', 'height': '400px'}), width=6)
     ])
 ], fluid=True)
-
 
 # =================================================
 # 11. Callback: Update charts based on filters
@@ -245,7 +238,7 @@ def render_dashboard(year_filter, cause_filter, state_filter, police_clicks, can
     filtered_data = filtered_data[
         (filtered_data['year'] >= start_year) & 
         (filtered_data['year'] <= end_year)
-        ]
+    ]
 
     # Filter by cause
     if 'ALL' not in cause_filter:
@@ -313,7 +306,7 @@ def render_dashboard(year_filter, cause_filter, state_filter, police_clicks, can
     police_color = "primary" if police_active else "secondary"
     canine_color = "primary" if canine_active else "secondary"
 
-    return bar_chart_html, time_series_html, us_map_html, "", summary, police_color, canine_color
+    return bar_chart_html,bar_chart2_html, time_series_html, us_map_html, "", summary, police_color, canine_color
 
 
 
@@ -327,4 +320,3 @@ if __name__ == '__main__':
     webbrowser.open("http://127.0.0.1:8050")
     # Disable the reloader to avoid opening the browser twice
     app.run_server(debug=True, use_reloader=False)
-
