@@ -138,6 +138,16 @@ def create_multiselect_dropdown(id, options):
 cause_options = [{'label': 'Select All', 'value': 'ALL'}] + [{'label': c, 'value': c} for c in sorted(data['cause_short'].unique())]
 state_options = [{'label': 'Select All', 'value': 'ALL'}] + [{'label': s, 'value': s} for s in sorted(data['state'].unique())]
 
+canine_filter = html.Div([
+    html.Label("Select Officer Type:", style={"font-weight": "bold", "margin-right": "10px"}),
+    dbc.ButtonGroup([
+        dbc.Button("Police", id="police-button", color="primary", outline=False, n_clicks=1), 
+        dbc.Button("Canine", id="canine-button", color="primary", outline=False, n_clicks=1), 
+    ])
+], style={"text-align": "right", "margin-bottom": "10px"})
+
+
+
 sidebar = html.Div([
     html.Label("Filter by Year"),
     dcc.RangeSlider(
@@ -155,8 +165,9 @@ sidebar = html.Div([
     create_multiselect_dropdown('cause-filter', cause_options),
     html.Br(),
     html.Label("Filter by State"),
-    create_multiselect_dropdown('state-filter', state_options)
+    create_multiselect_dropdown('state-filter', state_options),
 ])
+
 
 
 # =================================================
@@ -168,35 +179,34 @@ summary_section = html.Div(id='summary-stats')
 # 10. Main layout
 # =================================================
 app.layout = dbc.Container([
-    html.H1("Police Officer Deaths Dashboard"),
+    dbc.Row([
+        dbc.Col(html.H1("Police Officer Deaths Dashboard"), width=9),
+        dbc.Col(canine_filter, width=3, style={"text-align": "right"})  # Aligns to top-right
+    ], align="center", className="mb-3"),
+    
     dbc.Row([dbc.Col(summary_section, width=12)]),
+
     dbc.Row([
         dbc.Col(sidebar, width=3),
         dbc.Col(html.Iframe(id='bar-chart', style={'width': '100%', 'height': '400px'}), width=4),
         dbc.Col(html.Iframe(id='time-series', style={'width': '100%', 'height': '400px'}), width=4)
     ]),
+
     dbc.Row([
         dbc.Col(html.Iframe(id='us-map', style={'width': '100%', 'height': '400px'}), width=6),
         dbc.Col(html.Iframe(id='extra-chart', style={'width': '100%', 'height': '400px'}), width=6)
     ])
 ], fluid=True)
 
+
 # =================================================
 # 11. Callback: Update charts based on filters
 # =================================================
-@app.callback(
-    Output('cause-filter', 'value'),
-    Input('cause-filter', 'value')
-)
 def update_cause_filter(selected_values):
     if 'ALL' in selected_values:
         return [opt['value'] for opt in cause_options[1:]] if len(selected_values) == 1 else []
     return selected_values
 
-@app.callback(
-    Output('state-filter', 'value'),
-    Input('state-filter', 'value')
-)
 def update_state_filter(selected_values):
     if 'ALL' in selected_values:
         return [opt['value'] for opt in state_options[1:]] if len(selected_values) == 1 else []
@@ -208,22 +218,30 @@ def update_state_filter(selected_values):
         Output('time-series', 'srcDoc'),
         Output('us-map', 'srcDoc'),
         Output('extra-chart', 'srcDoc'),
-        Output('summary-stats', 'children')
+        Output('summary-stats', 'children'),
+        Output("police-button", "color"),  # Update button color dynamically
+        Output("canine-button", "color")   # Update button color dynamically
     ],
     [
         Input('year-filter', 'value'),
         Input('cause-filter', 'value'),
-        Input('state-filter', 'value')
+        Input('state-filter', 'value'),
+        Input('police-button', 'n_clicks'),
+        Input('canine-button', 'n_clicks')
     ]
 )
-def render_dashboard(year_filter, cause_filter, state_filter):
+def render_dashboard(year_filter, cause_filter, state_filter, police_clicks, canine_clicks):
+    # Toggle logic for buttons (odd clicks = selected, even clicks = deselected)
+    police_active = police_clicks % 2 == 1  # Default active
+    canine_active = canine_clicks % 2 == 1  # Default active
+
     # Copy the original data
     filtered_data = data.copy()
 
     # Filter by year
     start_year, end_year = year_filter
     filtered_data = filtered_data[
-        (filtered_data['year'] >= start_year) &
+        (filtered_data['year'] >= start_year) & 
         (filtered_data['year'] <= end_year)
     ]
 
@@ -235,8 +253,16 @@ def render_dashboard(year_filter, cause_filter, state_filter):
     if 'ALL' not in state_filter:
         filtered_data = filtered_data[filtered_data['state'].isin(state_filter)]
     
+    # Filter by officer type
+    if police_active and not canine_active:
+        filtered_data = filtered_data[filtered_data['canine'] == False]
+    elif canine_active and not police_active:
+        filtered_data = filtered_data[filtered_data['canine'] == True]
+    elif not police_active and not canine_active:
+        return "", "", "", "", html.H3("No data selected."), "secondary", "secondary"
+
     if filtered_data.empty:
-        return "", "", "", "", html.H3("No data available for the selected filters.")
+        return "", "", "", "", html.H3("No data available for the selected filters."), "secondary", "secondary"
 
     # Compute summary stats
     total_deaths, avg_per_year, year_change = compute_summary_stats(filtered_data)
@@ -272,8 +298,14 @@ def render_dashboard(year_filter, cause_filter, state_filter):
     time_series_html = time_series_obj.to_html() if time_series_obj else ""
     us_map_html = us_map_obj.to_html() if us_map_obj else ""
 
-    # "extra-chart" is empty
-    return bar_chart_html, time_series_html, us_map_html, "", summary
+    # Change button colors based on selection
+    police_color = "primary" if police_active else "secondary"
+    canine_color = "primary" if canine_active else "secondary"
+
+    return bar_chart_html, time_series_html, us_map_html, "", summary, police_color, canine_color
+
+
+
 
 def update_year_display(year_range):
     return f"Selected Years: {year_range[0]} - {year_range[1]}"
