@@ -77,9 +77,9 @@ def create_bar_chart(data, x_col, y_col, title):
         alt.Chart(data)
         .mark_bar()
         .encode(
-            x=alt.X(x_col, sort='-y'),
-            y=alt.Y(y_col),
-            color=alt.Color(x_col, legend=None),
+            x=alt.X(x_col),
+            y=alt.Y(y_col,sort='-x'),
+            color=alt.Color(y_col, legend=None),
             tooltip=[x_col, y_col]
         )
         .properties(title=title, width=500, height=400)
@@ -117,7 +117,7 @@ def create_us_heatmap(filtered_data):
         color="count",
         color_continuous_scale="reds",
         scope="usa",
-        title="US State-Level Heatmap",
+        title="Mapping Fallen Officers: U.S. Deaths by State",
     )
     return fig
 
@@ -189,6 +189,7 @@ app.layout = dbc.Container([
     dbc.Row([
         dbc.Col(sidebar, width=3),
         dbc.Col(html.Iframe(id='bar-chart', style={'width': '100%', 'height': '400px'}), width=4),
+        dbc.Col(html.Iframe(id='bar-chart2', style={'width': '100%', 'height': '400px'}), width=4),
         dbc.Col(html.Iframe(id='time-series', style={'width': '100%', 'height': '400px'}), width=4)
     ]),
 
@@ -215,6 +216,7 @@ def update_state_filter(selected_values):
 @app.callback(
     [
         Output('bar-chart', 'srcDoc'),
+        Output('bar-chart2', 'srcDoc'),
         Output('time-series', 'srcDoc'),
         Output('us-map', 'srcDoc'),
         Output('extra-chart', 'srcDoc'),
@@ -243,7 +245,7 @@ def render_dashboard(year_filter, cause_filter, state_filter, police_clicks, can
     filtered_data = filtered_data[
         (filtered_data['year'] >= start_year) & 
         (filtered_data['year'] <= end_year)
-    ]
+        ]
 
     # Filter by cause
     if 'ALL' not in cause_filter:
@@ -280,6 +282,13 @@ def render_dashboard(year_filter, cause_filter, state_filter, police_clicks, can
         .rename(columns={'size': 'Count'})
     )
 
+    dept_data = (
+        filtered_data
+        .groupby('dept', as_index=False)
+        .size()
+        .rename(columns={'size': 'Count'})
+    )
+
     # Prepare data for the time series (by year)
     time_series_data = (
         filtered_data
@@ -289,12 +298,14 @@ def render_dashboard(year_filter, cause_filter, state_filter, police_clicks, can
     )
 
     # Build charts
-    bar_chart_obj = create_bar_chart(cause_data, 'cause_short', 'Count', 'Main Causes')
+    bar_chart_obj = create_bar_chart(cause_data.sort_values(by='Count', ascending=False).head(10), 'Count', 'cause_short', 'Top 10 death causes')
+    bar_chart_obj_2 = create_bar_chart(dept_data.sort_values(by='Count', ascending=False).head(10), 'Count', 'dept', 'Top 10 departments')
     time_series_obj = create_time_series(time_series_data, 'year', 'Count', 'Deaths Over Time')
     us_map_obj = create_us_heatmap(filtered_data)
 
     # Convert Altair charts to HTML
     bar_chart_html = bar_chart_obj.to_html() if bar_chart_obj else ""
+    bar_chart2_html = bar_chart_obj_2.to_html() if bar_chart_obj_2 else ""
     time_series_html = time_series_obj.to_html() if time_series_obj else ""
     us_map_html = us_map_obj.to_html() if us_map_obj else ""
 
