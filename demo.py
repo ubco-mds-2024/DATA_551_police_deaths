@@ -47,6 +47,7 @@ state_abbrev_to_fips = {
 # =================================================
 data['fips'] = data['state'].map(state_abbrev_to_fips)
 
+
 # =================================================
 # 6. Summary statistic function
 # =================================================
@@ -56,15 +57,16 @@ def compute_summary_stats(filtered_data):
     year_max = filtered_data['year'].max()
     if pd.isna(year_min) or pd.isna(year_max):
         return 0, 0, 0
-    
+
     year_span = year_max - year_min + 1
     avg_per_year = total_deaths / year_span if year_span > 0 else 0
 
     first_year_count = filtered_data[filtered_data['year'] == year_min].shape[0]
     last_year_count = filtered_data[filtered_data['year'] == year_max].shape[0]
     year_change = ((last_year_count - first_year_count) / first_year_count * 100) if first_year_count > 0 else 0
-    
+
     return total_deaths, avg_per_year, year_change
+
 
 # =================================================
 # 7. Chart-building helper functions
@@ -73,6 +75,8 @@ def create_bar_chart(data, x_col, y_col, title):
     """Builds a bar chart."""
     if data.empty:
         return None
+    agg_data = data[x_col].value_counts().reset_index()
+    print(agg_data)
     chart = (
         alt.Chart(data)
         .mark_bar()
@@ -85,6 +89,7 @@ def create_bar_chart(data, x_col, y_col, title):
         .properties(title=title, width=500, height=400)
     )
     return chart
+
 
 def create_time_series(data, x_col, y_col, title):
     """Builds a line chart (time series)."""
@@ -108,7 +113,7 @@ def create_us_heatmap(filtered_data):
     state_counts = filtered_data["state"].value_counts().reset_index()
     state_counts.columns = ["state", "count"]  # rename column
     state_counts["state"] = state_counts["state"].str.strip()
-    print(state_counts)
+    #print(state_counts)
     # Create the choropleth map
     fig = px.choropleth(
         state_counts,
@@ -121,6 +126,7 @@ def create_us_heatmap(filtered_data):
     )
     return fig
 
+
 # =================================================
 # 8. Sidebar: user filters
 # =================================================
@@ -130,7 +136,7 @@ sidebar = html.Div([
         id='year-filter',
         min=data['year'].min(),
         max=data['year'].max(),
-        marks={i: str(i) for i in range(data['year'].min(), data['year'].max()+1, 50)},
+        marks={i: str(i) for i in range(data['year'].min(), data['year'].max() + 1, 50)},
         step=1,
         value=[data['year'].min(), data['year'].max()],
         tooltip={"placement": "bottom", "always_visible": True}
@@ -176,6 +182,7 @@ app.layout = dbc.Container([
     ])
 ], fluid=True)
 
+
 # =================================================
 # 11. Callback: Update charts based on filters
 # =================================================
@@ -202,7 +209,7 @@ def render_dashboard(year_filter, cause_filter, state_filter):
     filtered_data = filtered_data[
         (filtered_data['year'] >= start_year) &
         (filtered_data['year'] <= end_year)
-    ]
+        ]
 
     # Filter by cause
     if cause_filter:
@@ -211,7 +218,7 @@ def render_dashboard(year_filter, cause_filter, state_filter):
     # Filter by state
     if state_filter:
         filtered_data = filtered_data[filtered_data['state'].isin(state_filter)]
-        #print(filtered_data["state"].value_counts())
+        # print(filtered_data["state"].value_counts())
     # If nothing remains after filtering
     if filtered_data.empty:
         return "", "", "", "", html.H3("No data available for the selected filters.")
@@ -253,8 +260,11 @@ def render_dashboard(year_filter, cause_filter, state_filter):
     # "extra-chart" is empty
     return bar_chart_html, time_series_html, us_map_html, "", summary
 
+
 def update_year_display(year_range):
     return f"Selected Years: {year_range[0]} - {year_range[1]}"
+
+
 # =================================================
 # 12. Launch the app: only open one browser window
 # =================================================
@@ -262,4 +272,3 @@ if __name__ == '__main__':
     webbrowser.open("http://127.0.0.1:8050")
     # Disable the reloader to avoid opening the browser twice
     app.run_server(debug=True, use_reloader=False)
-
