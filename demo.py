@@ -146,10 +146,12 @@ sidebar = html.Div([
         id='year-filter',
         min=data['year'].min(),
         max=data['year'].max(),
-        marks={i: str(i) for i in range(data['year'].min(), data['year'].max()+1, 10)},
+        marks={i: str(i) for i in range(data['year'].min(), data['year'].max()+1, 50)},
         step=1,
-        value=[data['year'].min(), data['year'].max()]
+        value=[data['year'].min(), data['year'].max()],
+        tooltip={"placement": "bottom", "always_visible": True}
     ),
+    html.Div(id='year-display', style={"font-weight": "bold", "margin-top": "5px"}),
     html.Br(),
     html.Label("Filter by Cause"),
     dcc.Dropdown(
@@ -199,7 +201,7 @@ app.layout = dbc.Container([
         Output('time-series', 'srcDoc'),
         Output('us-map', 'srcDoc'),
         Output('extra-chart', 'srcDoc'),
-        Output('summary-stats', 'children')
+        Output('summary-stats', 'children'),
     ],
     [
         Input('year-filter', 'value'),
@@ -207,6 +209,7 @@ app.layout = dbc.Container([
         Input('state-filter', 'value')
     ]
 )
+
 def render_dashboard(year_filter, cause_filter, state_filter):
     # Copy the original data
     filtered_data = data.copy()
@@ -267,6 +270,9 @@ def render_dashboard(year_filter, cause_filter, state_filter):
     # "extra-chart" is empty
     return bar_chart_html, time_series_html, us_map_html, "", summary
 
+
+def update_year_display(year_range):
+    return f"Selected Years: {year_range[0]} - {year_range[1]}"
 # =================================================
 # 12. Launch the app: only open one browser window
 # =================================================
