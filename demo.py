@@ -124,6 +124,20 @@ def create_us_heatmap(filtered_data):
 # =================================================
 # 8. Sidebar: user filters
 # =================================================
+def create_multiselect_dropdown(id, options):
+    return html.Div([
+        dcc.Checklist(
+            id=id,
+            options=options,
+            value=[opt['value'] for opt in options[1:]],
+            inline=False,
+            inputStyle={"margin-right": "5px"}
+        )
+    ], style={"max-height": "200px", "overflow-y": "auto", "border": "1px solid #ccc", "padding": "5px"})
+
+cause_options = [{'label': 'Select All', 'value': 'ALL'}] + [{'label': c, 'value': c} for c in sorted(data['cause_short'].unique())]
+state_options = [{'label': 'Select All', 'value': 'ALL'}] + [{'label': s, 'value': s} for s in sorted(data['state'].unique())]
+
 sidebar = html.Div([
     html.Label("Filter by Year"),
     dcc.RangeSlider(
@@ -138,21 +152,12 @@ sidebar = html.Div([
     html.Div(id='year-display', style={"font-weight": "bold", "margin-top": "5px"}),
     html.Br(),
     html.Label("Filter by Cause"),
-    dcc.Dropdown(
-        id='cause-filter',
-        options=[{'label': c, 'value': c} for c in sorted(data['cause_short'].unique())],
-        multi=True,
-        placeholder="Select Cause(s)"
-    ),
+    create_multiselect_dropdown('cause-filter', cause_options),
     html.Br(),
     html.Label("Filter by State"),
-    dcc.Dropdown(
-        id='state-filter',
-        options=[{'label': s, 'value': s} for s in sorted(data['state'].unique())],
-        multi=True,
-        placeholder="Select State(s)"
-    )
+    create_multiselect_dropdown('state-filter', state_options)
 ])
+
 
 # =================================================
 # 9. Summary stats area
@@ -180,6 +185,24 @@ app.layout = dbc.Container([
 # 11. Callback: Update charts based on filters
 # =================================================
 @app.callback(
+    Output('cause-filter', 'value'),
+    Input('cause-filter', 'value')
+)
+def update_cause_filter(selected_values):
+    if 'ALL' in selected_values:
+        return [opt['value'] for opt in cause_options[1:]] if len(selected_values) == 1 else []
+    return selected_values
+
+@app.callback(
+    Output('state-filter', 'value'),
+    Input('state-filter', 'value')
+)
+def update_state_filter(selected_values):
+    if 'ALL' in selected_values:
+        return [opt['value'] for opt in state_options[1:]] if len(selected_values) == 1 else []
+    return selected_values
+
+@app.callback(
     [
         Output('bar-chart', 'srcDoc'),
         Output('time-series', 'srcDoc'),
@@ -205,14 +228,13 @@ def render_dashboard(year_filter, cause_filter, state_filter):
     ]
 
     # Filter by cause
-    if cause_filter:
+    if 'ALL' not in cause_filter:
         filtered_data = filtered_data[filtered_data['cause_short'].isin(cause_filter)]
 
     # Filter by state
-    if state_filter:
+    if 'ALL' not in state_filter:
         filtered_data = filtered_data[filtered_data['state'].isin(state_filter)]
-        #print(filtered_data["state"].value_counts())
-    # If nothing remains after filtering
+    
     if filtered_data.empty:
         return "", "", "", "", html.H3("No data available for the selected filters.")
 
