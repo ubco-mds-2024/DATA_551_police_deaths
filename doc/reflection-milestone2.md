@@ -3,7 +3,7 @@
 ## Implemented Features
 As of this milestone, we have successfully implemented the following features in our dashboard:
 
-### ✅ **Filtering & User Controls**
+### **Filtering & User Controls**
 1. **Functional Filter by Cause/State:**
    - Users can filter officer deaths based on different causes and U.S. states.
    - Includes a **"Select/Unselect All"** button for convenience.
@@ -14,7 +14,7 @@ As of this milestone, we have successfully implemented the following features in
 3. **Officer Type Selection:**
    - Allows filtering by **Police Officers** and **Canine Officers**.
 
-### ✅ **Visualizations**
+### **Visualizations**
 4. **Line Chart - Officer Deaths Over Time:**
    - Displays the **trend of officer deaths** across selected years.
    - Includes **interactive features** such as zooming and tooltips.
@@ -29,7 +29,7 @@ As of this milestone, we have successfully implemented the following features in
 7. **Top 10 Departments with the Most Officer Deaths (Bar Chart):**
    - Shows which **law enforcement departments** have reported the highest number of fatalities.
 
-### ✅ **Summary Statistics**
+### **Summary Statistics**
 8. **Statistical Summary Boxes:**
    - Displays key statistics:
      - **Total Deaths**
@@ -39,7 +39,7 @@ As of this milestone, we have successfully implemented the following features in
 ## Features Not Yet Implemented
 Despite the progress made, there are still improvements to be addressed in the next development phase:
 
-### ❌ **User Interface & Layout Adjustments**
+### **User Interface & Layout Adjustments**
 1. **Layout Adjustments:**
    - The current layout is **too tight**, causing some graphs to be **partially hidden**.
    - Future improvements will include **resizing graphs** for better visibility.
@@ -48,7 +48,7 @@ Despite the progress made, there are still improvements to be addressed in the n
    - Currently, the **Police/Canine filter** is **not easy to locate**.
    - We may **relocate it** to a more prominent position for better accessibility.
 
-### ❌ **Graph Readability & Labeling Enhancements**
+### **Graph Readability & Labeling Enhancements**
 3. **Polishing Plot Titles & Axis Labels:**
    - Some **titles and axis labels** need refinement for **better readability**.
 
@@ -56,18 +56,18 @@ Despite the progress made, there are still improvements to be addressed in the n
    - The **left column (filters) is too wide**, reducing space for visualizations.
    - Future adjustments will **reduce the filter panel width** and **increase graph size**.
 
-### ❌ **Enhanced Data Exploration Features**
+### **Enhanced Data Exploration Features**
 5. **Easier Access to Specific Year Statistics:**
    - Currently, users must **manually drag the year filter** to view specific data.
    - A planned improvement is to add an **input field for users to enter a specific year** for quick queries.
 
 ## Reflection on Dashboard Performance
-### ✅ **Strengths**
+### **Strengths**
 - The dashboard provides **a structured and interactive way** to analyze officer death statistics.
 - The **filters dynamically update** the visualizations, enhancing usability.
 - The **heatmap and time-series visualizations** effectively communicate trends.
 
-### ❌ **Limitations**
+### **Limitations**
 - **Limited space causes graphs to be cut off.**
 - **Some elements are not intuitively placed**, making it harder for users to find relevant filters.
 - **No quick method for querying a specific year**, which could improve data accessibility.
