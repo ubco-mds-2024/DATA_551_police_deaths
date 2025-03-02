@@ -47,7 +47,6 @@ state_abbrev_to_fips = {
 # =================================================
 data['fips'] = data['state'].map(state_abbrev_to_fips)
 
-
 # =================================================
 # 6. Summary statistic function
 # =================================================
@@ -57,16 +56,15 @@ def compute_summary_stats(filtered_data):
     year_max = filtered_data['year'].max()
     if pd.isna(year_min) or pd.isna(year_max):
         return 0, 0, 0
-
+    
     year_span = year_max - year_min + 1
     avg_per_year = total_deaths / year_span if year_span > 0 else 0
 
     first_year_count = filtered_data[filtered_data['year'] == year_min].shape[0]
     last_year_count = filtered_data[filtered_data['year'] == year_max].shape[0]
     year_change = ((last_year_count - first_year_count) / first_year_count * 100) if first_year_count > 0 else 0
-
+    
     return total_deaths, avg_per_year, year_change
-
 
 # =================================================
 # 7. Chart-building helper functions
@@ -87,7 +85,6 @@ def create_bar_chart(data, x_col, y_col, title):
         .properties(title=title, width=500, height=400)
     )
     return chart
-
 
 def create_time_series(data, x_col, y_col, title):
     """Builds a line chart (time series)."""
@@ -124,7 +121,6 @@ def create_us_heatmap(filtered_data):
     )
     return fig
 
-
 # =================================================
 # 8. Sidebar: user filters
 # =================================================
@@ -139,11 +135,8 @@ def create_multiselect_dropdown(id, options):
         )
     ], style={"max-height": "200px", "overflow-y": "auto", "border": "1px solid #ccc", "padding": "5px"})
 
-
-cause_options = [{'label': 'Select All', 'value': 'ALL'}] + [{'label': c, 'value': c} for c in
-                                                             sorted(data['cause_short'].unique())]
-state_options = [{'label': 'Select All', 'value': 'ALL'}] + [{'label': s, 'value': s} for s in
-                                                             sorted(data['state'].unique())]
+cause_options = [{'label': 'Select All', 'value': 'ALL'}] + [{'label': c, 'value': c} for c in sorted(data['cause_short'].unique())]
+state_options = [{'label': 'Select All', 'value': 'ALL'}] + [{'label': s, 'value': s} for s in sorted(data['state'].unique())]
 
 sidebar = html.Div([
     html.Label("Filter by Year"),
@@ -151,7 +144,7 @@ sidebar = html.Div([
         id='year-filter',
         min=data['year'].min(),
         max=data['year'].max(),
-        marks={i: str(i) for i in range(data['year'].min(), data['year'].max() + 1, 50)},
+        marks={i: str(i) for i in range(data['year'].min(), data['year'].max()+1, 50)},
         step=1,
         value=[data['year'].min(), data['year'].max()],
         tooltip={"placement": "bottom", "always_visible": True}
@@ -164,6 +157,7 @@ sidebar = html.Div([
     html.Label("Filter by State"),
     create_multiselect_dropdown('state-filter', state_options)
 ])
+
 
 # =================================================
 # 9. Summary stats area
@@ -188,7 +182,6 @@ app.layout = dbc.Container([
     ])
 ], fluid=True)
 
-
 # =================================================
 # 11. Callback: Update charts based on filters
 # =================================================
@@ -201,7 +194,6 @@ def update_cause_filter(selected_values):
         return [opt['value'] for opt in cause_options[1:]] if len(selected_values) == 1 else []
     return selected_values
 
-
 @app.callback(
     Output('state-filter', 'value'),
     Input('state-filter', 'value')
@@ -210,7 +202,6 @@ def update_state_filter(selected_values):
     if 'ALL' in selected_values:
         return [opt['value'] for opt in state_options[1:]] if len(selected_values) == 1 else []
     return selected_values
-
 
 @app.callback(
     [
@@ -298,8 +289,6 @@ def render_dashboard(year_filter, cause_filter, state_filter):
 
 def update_year_display(year_range):
     return f"Selected Years: {year_range[0]} - {year_range[1]}"
-
-
 # =================================================
 # 12. Launch the app: only open one browser window
 # =================================================
@@ -307,3 +296,4 @@ if __name__ == '__main__':
     webbrowser.open("http://127.0.0.1:8050")
     # Disable the reloader to avoid opening the browser twice
     app.run_server(debug=True, use_reloader=False)
+
