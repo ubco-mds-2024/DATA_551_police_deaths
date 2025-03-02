@@ -5,7 +5,6 @@ import pandas as pd
 import altair as alt
 from vega_datasets import data as vega_data
 import webbrowser
-import plotly.express as px
 
 # =================================================
 # 1. Load the CSV data
@@ -77,9 +76,9 @@ def create_bar_chart(data, x_col, y_col, title):
         alt.Chart(data)
         .mark_bar()
         .encode(
-            x=alt.X(x_col),
-            y=alt.Y(y_col,sort='-x'),
-            color=alt.Color(y_col, legend=None),
+            x=alt.X(x_col, sort='-y'),
+            y=alt.Y(y_col),
+            color=alt.Color(x_col, legend=None),
             tooltip=[x_col, y_col]
         )
         .properties(title=title, width=500, height=400)
@@ -102,50 +101,45 @@ def create_time_series(data, x_col, y_col, title):
     )
     return chart
 
-
-def create_us_heatmap(filtered_data):
-    # Count occurrences of each state
-    state_counts = filtered_data["state"].value_counts().reset_index()
-    state_counts.columns = ["state", "count"]  # rename column
-    state_counts["state"] = state_counts["state"].str.strip()
-    print(state_counts)
-    # Create the choropleth map
-    fig = px.choropleth(
-        state_counts,
-        locations="state",
-        locationmode="USA-states",
-        color="count",
-        color_continuous_scale="reds",
-        scope="usa",
-        title="Mapping Fallen Officers: U.S. Deaths by State",
+def create_us_map(filtered_data):
+    """Builds a US map showing death counts by state."""
+    if filtered_data.empty:
+        return None
+    
+    # Aggregate number of deaths by state/fips
+    state_counts = (
+        filtered_data
+        .groupby(['state', 'fips'], as_index=False)
+        .size()  # creates a column named 'size'
+        .rename(columns={'size': 'Deaths'})
     )
-    return fig
+
+    # Drop rows where fips is NaN (meaning the abbreviation didn't match)
+    state_counts = state_counts.dropna(subset=['fips'])
+
+    # Load US states topo data
+    states = alt.topo_feature(vega_data.us_10m.url, feature='states')
+
+    # Build the map
+    map_chart = (
+        alt.Chart(states)
+        .mark_geoshape()
+        .encode(
+            color=alt.Color('Deaths:Q', scale=alt.Scale(scheme='blues')),
+            tooltip=['state:N', 'Deaths:Q']
+        )
+        .transform_lookup(
+            lookup='id',  # the FIPS code in the topojson
+            from_=alt.LookupData(state_counts, 'fips', ['Deaths', 'state'])
+        )
+        .project('albersUsa')
+        .properties(width=500, height=400)
+    )
+    return map_chart
 
 # =================================================
 # 8. Sidebar: user filters
 # =================================================
-def create_multiselect_dropdown(id, options):
-    return html.Div([
-        dcc.Checklist(
-            id=id,
-            options=options,
-            value=[opt['value'] for opt in options[1:]],
-            inline=False,
-            inputStyle={"margin-right": "5px"}
-        )
-    ], style={"max-height": "200px", "overflow-y": "auto", "border": "1px solid #ccc", "padding": "5px"})
-
-cause_options = [{'label': 'Select All', 'value': 'ALL'}] + [{'label': c, 'value': c} for c in sorted(data['cause_short'].unique())]
-state_options = [{'label': 'Select All', 'value': 'ALL'}] + [{'label': s, 'value': s} for s in sorted(data['state'].unique())]
-
-canine_filter = html.Div([
-    html.Label("Select Officer Type:", style={"font-weight": "bold", "margin-right": "10px"}),
-    dbc.ButtonGroup([
-        dbc.Button("Police", id="police-button", color="primary", outline=False, n_clicks=1), 
-        dbc.Button("Canine", id="canine-button", color="primary", outline=False, n_clicks=1), 
-    ])
-], style={"text-align": "right", "margin-bottom": "10px"})
-
 sidebar = html.Div([
     html.Label("Filter by Year"),
     dcc.RangeSlider(
@@ -160,12 +154,21 @@ sidebar = html.Div([
     html.Div(id='year-display', style={"font-weight": "bold", "margin-top": "5px"}),
     html.Br(),
     html.Label("Filter by Cause"),
-    create_multiselect_dropdown('cause-filter', cause_options),
+    dcc.Dropdown(
+        id='cause-filter',
+        options=[{'label': c, 'value': c} for c in sorted(data['cause_short'].unique())],
+        multi=True,
+        placeholder="Select Cause(s)"
+    ),
     html.Br(),
     html.Label("Filter by State"),
-    create_multiselect_dropdown('state-filter', state_options),
+    dcc.Dropdown(
+        id='state-filter',
+        options=[{'label': s, 'value': s} for s in sorted(data['state'].unique())],
+        multi=True,
+        placeholder="Select State(s)"
+    )
 ])
-
 
 # =================================================
 # 9. Summary stats area
@@ -176,15 +179,11 @@ summary_section = html.Div(id='summary-stats')
 # 10. Main layout
 # =================================================
 app.layout = dbc.Container([
-    dbc.Row([
-        dbc.Col(html.H1("Police Officer Deaths Dashboard"), width=9),
-        dbc.Col(canine_filter, width=3, style={"text-align": "right"})  # Aligns to top-right
-    ], align="center", className="mb-3"),
+    html.H1("Police Officer Deaths Dashboard"),
     dbc.Row([dbc.Col(summary_section, width=12)]),
     dbc.Row([
         dbc.Col(sidebar, width=3),
         dbc.Col(html.Iframe(id='bar-chart', style={'width': '100%', 'height': '400px'}), width=4),
-        dbc.Col(html.Iframe(id='bar-chart2', style={'width': '100%', 'height': '400px'}), width=4),
         dbc.Col(html.Iframe(id='time-series', style={'width': '100%', 'height': '400px'}), width=4)
     ]),
     dbc.Row([
@@ -196,68 +195,43 @@ app.layout = dbc.Container([
 # =================================================
 # 11. Callback: Update charts based on filters
 # =================================================
-def update_cause_filter(selected_values):
-    if 'ALL' in selected_values:
-        return [opt['value'] for opt in cause_options[1:]] if len(selected_values) == 1 else []
-    return selected_values
-
-def update_state_filter(selected_values):
-    if 'ALL' in selected_values:
-        return [opt['value'] for opt in state_options[1:]] if len(selected_values) == 1 else []
-    return selected_values
-
 @app.callback(
     [
         Output('bar-chart', 'srcDoc'),
-        Output('bar-chart2', 'srcDoc'),
         Output('time-series', 'srcDoc'),
         Output('us-map', 'srcDoc'),
         Output('extra-chart', 'srcDoc'),
         Output('summary-stats', 'children'),
-        Output("police-button", "color"),  # Update button color dynamically
-        Output("canine-button", "color")   # Update button color dynamically
     ],
     [
         Input('year-filter', 'value'),
         Input('cause-filter', 'value'),
-        Input('state-filter', 'value'),
-        Input('police-button', 'n_clicks'),
-        Input('canine-button', 'n_clicks')
+        Input('state-filter', 'value')
     ]
 )
-def render_dashboard(year_filter, cause_filter, state_filter, police_clicks, canine_clicks):
-    # Toggle logic for buttons (odd clicks = selected, even clicks = deselected)
-    police_active = police_clicks % 2 == 1  # Default active
-    canine_active = canine_clicks % 2 == 1  # Default active
 
+def render_dashboard(year_filter, cause_filter, state_filter):
     # Copy the original data
     filtered_data = data.copy()
 
     # Filter by year
     start_year, end_year = year_filter
     filtered_data = filtered_data[
-        (filtered_data['year'] >= start_year) & 
+        (filtered_data['year'] >= start_year) &
         (filtered_data['year'] <= end_year)
     ]
 
     # Filter by cause
-    if 'ALL' not in cause_filter:
+    if cause_filter:
         filtered_data = filtered_data[filtered_data['cause_short'].isin(cause_filter)]
 
     # Filter by state
-    if 'ALL' not in state_filter:
+    if state_filter:
         filtered_data = filtered_data[filtered_data['state'].isin(state_filter)]
-    
-    # Filter by officer type
-    if police_active and not canine_active:
-        filtered_data = filtered_data[filtered_data['canine'] == False]
-    elif canine_active and not police_active:
-        filtered_data = filtered_data[filtered_data['canine'] == True]
-    elif not police_active and not canine_active:
-        return "", "", "", "", html.H3("No data selected."), "secondary", "secondary"
 
+    # If nothing remains after filtering
     if filtered_data.empty:
-        return "", "", "", "", html.H3("No data available for the selected filters."), "secondary", "secondary"
+        return "", "", "", "", html.H3("No data available for the selected filters.")
 
     # Compute summary stats
     total_deaths, avg_per_year, year_change = compute_summary_stats(filtered_data)
@@ -275,13 +249,6 @@ def render_dashboard(year_filter, cause_filter, state_filter, police_clicks, can
         .rename(columns={'size': 'Count'})
     )
 
-    dept_data = (
-        filtered_data
-        .groupby('dept', as_index=False)
-        .size()
-        .rename(columns={'size': 'Count'})
-    )
-
     # Prepare data for the time series (by year)
     time_series_data = (
         filtered_data
@@ -291,24 +258,17 @@ def render_dashboard(year_filter, cause_filter, state_filter, police_clicks, can
     )
 
     # Build charts
-    bar_chart_obj = create_bar_chart(cause_data.sort_values(by='Count', ascending=False).head(10), 'Count', 'cause_short', 'Top 10 death causes')
-    bar_chart_obj_2 = create_bar_chart(dept_data.sort_values(by='Count', ascending=False).head(10), 'Count', 'dept', 'Top 10 departments')
+    bar_chart_obj = create_bar_chart(cause_data, 'cause_short', 'Count', 'Main Causes')
     time_series_obj = create_time_series(time_series_data, 'year', 'Count', 'Deaths Over Time')
-    us_map_obj = create_us_heatmap(filtered_data)
+    us_map_obj = create_us_map(filtered_data)
 
     # Convert Altair charts to HTML
     bar_chart_html = bar_chart_obj.to_html() if bar_chart_obj else ""
-    bar_chart2_html = bar_chart_obj_2.to_html() if bar_chart_obj_2 else ""
     time_series_html = time_series_obj.to_html() if time_series_obj else ""
     us_map_html = us_map_obj.to_html() if us_map_obj else ""
 
-    # Change button colors based on selection
-    police_color = "primary" if police_active else "secondary"
-    canine_color = "primary" if canine_active else "secondary"
-
-    return bar_chart_html,bar_chart2_html, time_series_html, us_map_html, "", summary, police_color, canine_color
-
-
+    # "extra-chart" is empty
+    return bar_chart_html, time_series_html, us_map_html, "", summary
 
 
 def update_year_display(year_range):
@@ -320,3 +280,4 @@ if __name__ == '__main__':
     webbrowser.open("http://127.0.0.1:8050")
     # Disable the reloader to avoid opening the browser twice
     app.run_server(debug=True, use_reloader=False)
+
