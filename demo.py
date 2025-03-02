@@ -77,9 +77,9 @@ def create_bar_chart(data, x_col, y_col, title):
         alt.Chart(data)
         .mark_bar()
         .encode(
-            x=alt.X(x_col, sort='-y'),
-            y=alt.Y(y_col),
-            color=alt.Color(x_col, legend=None),
+            x=alt.X(x_col),
+            y=alt.Y(y_col,sort='-x'),
+            color=alt.Color(y_col, legend=None),
             tooltip=[x_col, y_col]
         )
         .properties(title=title, width=500, height=400)
@@ -272,8 +272,8 @@ def render_dashboard(year_filter, cause_filter, state_filter):
     )
 
     # Build charts
-    bar_chart_obj = create_bar_chart(cause_data.sort_values(by='Count', ascending=False).head(10), 'cause_short', 'Count', 'Top 10 death causes')
-    bar_chart_obj_2 = create_bar_chart(dept_data.sort_values(by='Count', ascending=False).head(10), 'dept', 'Count', 'Top 10 departments')
+    bar_chart_obj = create_bar_chart(cause_data.sort_values(by='Count', ascending=False).head(10), 'Count', 'cause_short', 'Top 10 death causes')
+    bar_chart_obj_2 = create_bar_chart(dept_data.sort_values(by='Count', ascending=False).head(10), 'Count', 'dept', 'Top 10 departments')
     time_series_obj = create_time_series(time_series_data, 'year', 'Count', 'Deaths Over Time')
     us_map_obj = create_us_heatmap(filtered_data)
 
