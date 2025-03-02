@@ -10,7 +10,7 @@ import plotly.express as px
 # =================================================
 # 1. Load the CSV data
 # =================================================
-file_path = 'clean_data.csv'
+file_path = 'data/clean_data.csv'
 data = pd.read_csv(file_path)
 
 # If 'state' might have inconsistent cases or extra spaces, do this:
@@ -175,22 +175,39 @@ summary_section = html.Div(id='summary-stats')
 # =================================================
 # 10. Main layout
 # =================================================
+# Add the button group back in the layout
 app.layout = dbc.Container([
     dbc.Row([
         dbc.Col(html.H1("Police Officer Deaths Dashboard"), width=9),
         dbc.Col(canine_filter, width=3, style={"text-align": "right"})  # Aligns to top-right
     ], align="center", className="mb-3"),
-    dbc.Row([dbc.Col(summary_section, width=12)]),
+    
     dbc.Row([
-        dbc.Col(sidebar, width=3),
-        dbc.Col(html.Iframe(id='bar-chart', style={'width': '100%', 'height': '400px'}), width=4),
-        dbc.Col(html.Iframe(id='bar-chart2', style={'width': '100%', 'height': '400px'}), width=4),
-        dbc.Col(html.Iframe(id='time-series', style={'width': '100%', 'height': '400px'}), width=4)
-    ]),
-    dbc.Row([
-        dbc.Col(html.Iframe(id='us-map', style={'width': '100%', 'height': '400px'}), width=6),
-        dbc.Col(html.Iframe(id='extra-chart', style={'width': '100%', 'height': '400px'}), width=6)
-    ])
+        dbc.Col(sidebar, width=3, style={"border-right": "1px solid #ccc", "padding-right": "15px"}),
+        
+        dbc.Col([
+            # Summary stats in horizontal boxes
+            dbc.Row([
+                dbc.Col(dbc.Card([dbc.CardBody([html.H5("Total Deaths"), html.P(id="total-deaths")])]), width=4),
+                dbc.Col(dbc.Card([dbc.CardBody([html.H5("Average Deaths per Year"), html.P(id="avg-deaths")])]), width=4),
+                dbc.Col(dbc.Card([dbc.CardBody([html.H5("Annual Growth Rate"), html.P(id="growth-rate")])]), width=4)
+            ], className="mb-3"),
+            
+            dbc.Row([
+                # Left side (Time Series on top, Bar Charts below it)
+                dbc.Col([
+                    html.Iframe(id='time-series', style={'width': '100%', 'height': '400px'}),
+                    dbc.Row([
+                        dbc.Col(html.Iframe(id='bar-chart', style={'width': '100%', 'height': '400px'}), width=6),
+                        dbc.Col(html.Iframe(id='bar-chart2', style={'width': '100%', 'height': '400px'}), width=6)
+                    ], className="mt-3")
+                ], width=6),
+                
+                # Right side (Map Graph)
+                dbc.Col(html.Iframe(id='us-map', style={'width': '100%', 'height': '700px'}), width=6)
+            ], className="mt-3")
+        ], width=9)
+    ], align="start", className="mt-2")
 ], fluid=True)
 
 # =================================================
@@ -212,10 +229,11 @@ def update_state_filter(selected_values):
         Output('bar-chart2', 'srcDoc'),
         Output('time-series', 'srcDoc'),
         Output('us-map', 'srcDoc'),
-        Output('extra-chart', 'srcDoc'),
-        Output('summary-stats', 'children'),
-        Output("police-button", "color"),  # Update button color dynamically
-        Output("canine-button", "color")   # Update button color dynamically
+        Output('total-deaths', 'children'),
+        Output('avg-deaths', 'children'),
+        Output('growth-rate', 'children'),
+        Output("police-button", "color"),
+        Output("canine-button", "color")
     ],
     [
         Input('year-filter', 'value'),
@@ -226,48 +244,37 @@ def update_state_filter(selected_values):
     ]
 )
 def render_dashboard(year_filter, cause_filter, state_filter, police_clicks, canine_clicks):
-    # Toggle logic for buttons (odd clicks = selected, even clicks = deselected)
-    police_active = police_clicks % 2 == 1  # Default active
-    canine_active = canine_clicks % 2 == 1  # Default active
+    police_active = police_clicks % 2 == 1
+    canine_active = canine_clicks % 2 == 1
 
-    # Copy the original data
     filtered_data = data.copy()
-
-    # Filter by year
+    
     start_year, end_year = year_filter
     filtered_data = filtered_data[
         (filtered_data['year'] >= start_year) & 
         (filtered_data['year'] <= end_year)
     ]
 
-    # Filter by cause
     if 'ALL' not in cause_filter:
         filtered_data = filtered_data[filtered_data['cause_short'].isin(cause_filter)]
 
-    # Filter by state
     if 'ALL' not in state_filter:
         filtered_data = filtered_data[filtered_data['state'].isin(state_filter)]
-    
-    # Filter by officer type
+
     if police_active and not canine_active:
         filtered_data = filtered_data[filtered_data['canine'] == False]
     elif canine_active and not police_active:
         filtered_data = filtered_data[filtered_data['canine'] == True]
     elif not police_active and not canine_active:
-        return "", "", "", "", html.H3("No data selected."), "secondary", "secondary"
+        return "", "", "", "", "0", "0", "0", "secondary", "secondary"
 
     if filtered_data.empty:
-        return "", "", "", "", html.H3("No data available for the selected filters."), "secondary", "secondary"
+        return "", "", "", "", "0", "0", "0", "secondary", "secondary"
 
     # Compute summary stats
     total_deaths, avg_per_year, year_change = compute_summary_stats(filtered_data)
-    summary = html.Div([
-        html.P(f"Total Deaths: {total_deaths}"),
-        html.P(f"Average Deaths per Year: {round(avg_per_year, 2)}"),
-        html.P(f"Annual Growth Rate: {round(year_change, 2)}%")
-    ])
 
-    # Prepare data for the bar chart (by cause)
+    # Prepare data for charts
     cause_data = (
         filtered_data
         .groupby('cause_short', as_index=False)
@@ -282,7 +289,6 @@ def render_dashboard(year_filter, cause_filter, state_filter, police_clicks, can
         .rename(columns={'size': 'Count'})
     )
 
-    # Prepare data for the time series (by year)
     time_series_data = (
         filtered_data
         .groupby('year', as_index=False)
@@ -302,13 +308,10 @@ def render_dashboard(year_filter, cause_filter, state_filter, police_clicks, can
     time_series_html = time_series_obj.to_html() if time_series_obj else ""
     us_map_html = us_map_obj.to_html() if us_map_obj else ""
 
-    # Change button colors based on selection
     police_color = "primary" if police_active else "secondary"
     canine_color = "primary" if canine_active else "secondary"
 
-    return bar_chart_html,bar_chart2_html, time_series_html, us_map_html, "", summary, police_color, canine_color
-
-
+    return bar_chart_html, bar_chart2_html, time_series_html, us_map_html, str(total_deaths), str(round(avg_per_year, 2)), f"{round(year_change, 2)}%", police_color, canine_color
 
 
 def update_year_display(year_range):
