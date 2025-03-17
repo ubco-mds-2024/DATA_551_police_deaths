@@ -319,7 +319,7 @@ def update_year_display(year_range):
 # =================================================
 # 12. Launch the app: only open one browser window
 # =================================================
+server = app.server  
 if __name__ == '__main__':
-    webbrowser.open("http://127.0.0.1:8050")
-    # Disable the reloader to avoid opening the browser twice
-    app.run_server(debug=True, use_reloader=False)
+    app.run_server(debug=False, host="0.0.0.0", port=8050)
+
