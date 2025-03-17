@@ -71,20 +71,24 @@ def compute_summary_stats(filtered_data):
 # =================================================
 # 7. Chart-building helper functions
 # =================================================
-def create_bar_chart(data, x_col, y_col, title):
-    """Builds a bar chart."""
+def create_bar_chart(data, x_col, y_col, title, y_axis_label="Category"):
+    """Builds a bar chart with a custom Y-axis label and comma-formatted tooltips."""
     if data.empty:
         return None
+
     chart = (
         alt.Chart(data)
         .mark_bar()
         .encode(
-            x=alt.X(x_col),
-            y=alt.Y(y_col, sort='-x'),
+            x=alt.X(x_col, title="Count"),
+            y=alt.Y(y_col, title=y_axis_label, sort='-x'),  # Custom Y-axis label
             color=alt.Color(y_col, legend=None),
-            tooltip=[x_col, y_col]
+            tooltip=[
+                alt.Tooltip(x_col, title="Count", format=","),
+                alt.Tooltip(y_col, title=y_axis_label)
+            ]
         )
-        .properties(title=title, width=150, height=300)
+        .properties(title=title, width=500, height=400)
     )
     return chart
 
@@ -99,7 +103,10 @@ def create_time_series(data, x_col, y_col, title):
         .encode(
             x=alt.X(x_col, title='Year', axis=alt.Axis(format='d', tickMinStep=5)),
             y=alt.Y(y_col, title='Number of Deaths'),
-            tooltip=[x_col, y_col]
+            tooltip=[
+                alt.Tooltip(x_col, title="Year"),
+                alt.Tooltip(y_col, title="Deaths", format=",")
+            ]
         )
         .properties(title=title, width=600, height=300)  # Reduced size
     )
@@ -311,7 +318,10 @@ def render_dashboard(year_filter, cause_filter, state_filter, police_clicks, can
 
     # Compute summary stats
     total_deaths, avg_per_year, year_change = compute_summary_stats(filtered_data)
-
+    # Format numbers with commas
+    total_deaths_str = f"{total_deaths:,}"
+    avg_per_year_str = f"{avg_per_year:,.2f}"
+    year_change_str = f"{year_change:,.2f}%"
     # Prepare data for charts
     cause_data = (
         filtered_data
@@ -335,10 +345,15 @@ def render_dashboard(year_filter, cause_filter, state_filter, police_clicks, can
     )
 
     # Build charts
-    bar_chart_obj = create_bar_chart(cause_data.sort_values(by='Count', ascending=False).head(10), 'Count',
-                                     'cause_short', 'Top 10 death causes')
-    bar_chart_obj_2 = create_bar_chart(dept_data.sort_values(by='Count', ascending=False).head(10), 'Count', 'dept',
-                                       'Top 10 departments')
+    bar_chart_obj = create_bar_chart(
+    cause_data.sort_values(by='Count', ascending=False).head(10),
+    'Count', 'cause_short', 'Top 10 Death Causes', y_axis_label="Cause of Death"
+    )
+
+    bar_chart_obj_2 = create_bar_chart(
+    dept_data.sort_values(by='Count', ascending=False).head(10),
+    'Count', 'dept', 'Top 10 Departments', y_axis_label="Department"
+    )
     time_series_obj = create_time_series(time_series_data, 'year', 'Count', 'Deaths Over Time')
     us_map_obj = create_us_heatmap(filtered_data)
 
@@ -351,8 +366,8 @@ def render_dashboard(year_filter, cause_filter, state_filter, police_clicks, can
     police_color = "primary" if police_active else "secondary"
     canine_color = "primary" if canine_active else "secondary"
 
-    return bar_chart_html, bar_chart2_html, time_series_html, us_map_html, str(total_deaths), str(
-        round(avg_per_year, 2)), f"{round(year_change, 2)}%", police_color, canine_color
+    return bar_chart_html, bar_chart2_html, time_series_html, us_map_html, total_deaths_str, avg_per_year_str, year_change_str, police_color, canine_color
+
 
 
 def update_year_display(year_range):
