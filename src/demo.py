@@ -135,8 +135,8 @@ def create_multiselect_dropdown(id, options):
         )
     ], style={"max-height": "200px", "overflow-y": "auto", "border": "1px solid #ccc", "padding": "5px"})
 
-cause_options = [{'label': 'Select All', 'value': 'ALL'}] + [{'label': c, 'value': c} for c in sorted(data['cause_short'].unique())]
-state_options = [{'label': 'Select All', 'value': 'ALL'}] + [{'label': s, 'value': s} for s in sorted(data['state'].unique())]
+cause_options = [{'label': 'Select/Unselect All', 'value': 'ALL'}] + [{'label': c, 'value': c} for c in sorted(data['cause_short'].unique())]
+state_options = [{'label': 'Select/Unselect All', 'value': 'ALL'}] + [{'label': s, 'value': s} for s in sorted(data['state'].unique())]
 
 canine_filter = html.Div([
     html.Label("Select Officer Type:", style={"font-weight": "bold", "margin-right": "10px"}),
@@ -213,15 +213,43 @@ app.layout = dbc.Container([
 # =================================================
 # 11. Callback: Update charts based on filters
 # =================================================
+from dash.exceptions import PreventUpdate
+
+@app.callback(
+    Output('cause-filter', 'value'),
+    Input('cause-filter', 'value'),
+    prevent_initial_call=True
+)
 def update_cause_filter(selected_values):
+    """Handles 'Select All' for cause-filter."""
+    all_options = [opt['value'] for opt in cause_options[1:]]  # Exclude "Select All"
+    
     if 'ALL' in selected_values:
-        return [opt['value'] for opt in cause_options[1:]] if len(selected_values) == 1 else []
+        if len(selected_values) == 1:  # If only "Select All" is selected, select all causes
+            return all_options
+        else:  # If "Select All" was unchecked, unselect everything
+            return []
+    
     return selected_values
 
+
+@app.callback(
+    Output('state-filter', 'value'),
+    Input('state-filter', 'value'),
+    prevent_initial_call=True
+)
 def update_state_filter(selected_values):
+    """Handles 'Select All' for state-filter."""
+    all_options = [opt['value'] for opt in state_options[1:]]  # Exclude "Select All"
+
     if 'ALL' in selected_values:
-        return [opt['value'] for opt in state_options[1:]] if len(selected_values) == 1 else []
+        if len(selected_values) == 1:  # If only "Select All" is selected, select all states
+            return all_options
+        else:  # If "Select All" was unchecked, unselect everything
+            return []
+
     return selected_values
+
 
 @app.callback(
     [
