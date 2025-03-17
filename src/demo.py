@@ -88,10 +88,9 @@ def create_bar_chart(data, x_col, y_col, title, y_axis_label="Category"):
                 alt.Tooltip(y_col, title=y_axis_label)
             ]
         )
-        .properties(title=title, width=500, height=400)
+        .properties(title=title, width=150, height=300)
     )
     return chart
-
 
 def create_time_series(data, x_col, y_col, title):
     """Builds a line chart (time series)."""
@@ -146,11 +145,8 @@ def create_multiselect_dropdown(id, options):
         )
     ], style={"max-height": "200px", "overflow-y": "auto", "border": "1px solid #ccc", "padding": "5px"})
 
-
-cause_options = [{'label': 'Select/Unselect All', 'value': 'ALL'}] + [{'label': c, 'value': c} for c in
-                                                                      sorted(data['cause_short'].unique())]
-state_options = [{'label': 'Select/Unselect All', 'value': 'ALL'}] + [{'label': s, 'value': s} for s in
-                                                                      sorted(data['state'].unique())]
+cause_options = [{'label': 'Select/Unselect All', 'value': 'ALL'}] + [{'label': c, 'value': c} for c in sorted(data['cause_short'].unique())]
+state_options = [{'label': 'Select/Unselect All', 'value': 'ALL'}] + [{'label': s, 'value': s} for s in sorted(data['state'].unique())]
 
 canine_filter = html.Div([
     html.Label("Select Officer Type:", style={"font-weight": "bold", "margin-right": "10px"}),
@@ -230,7 +226,6 @@ app.layout = dbc.Container([
 # 11. Callback: Update charts based on filters
 # =================================================
 from dash.exceptions import PreventUpdate
-
 
 @app.callback(
     Output('cause-filter', 'value'),
@@ -318,10 +313,12 @@ def render_dashboard(year_filter, cause_filter, state_filter, police_clicks, can
 
     # Compute summary stats
     total_deaths, avg_per_year, year_change = compute_summary_stats(filtered_data)
+
     # Format numbers with commas
     total_deaths_str = f"{total_deaths:,}"
     avg_per_year_str = f"{avg_per_year:,.2f}"
     year_change_str = f"{year_change:,.2f}%"
+
     # Prepare data for charts
     cause_data = (
         filtered_data
@@ -369,7 +366,6 @@ def render_dashboard(year_filter, cause_filter, state_filter, police_clicks, can
     return bar_chart_html, bar_chart2_html, time_series_html, us_map_html, total_deaths_str, avg_per_year_str, year_change_str, police_color, canine_color
 
 
-
 def update_year_display(year_range):
     return f"Selected Years: {year_range[0]} - {year_range[1]}"
 
@@ -380,4 +376,4 @@ def update_year_display(year_range):
 if __name__ == '__main__':
     webbrowser.open("http://127.0.0.1:8050")
     # Disable the reloader to avoid opening the browser twice
-    app.run_server(debug=True, use_reloader=False)
+    app.run(debug=True, use_reloader=False)
