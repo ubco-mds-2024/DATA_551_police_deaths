@@ -47,7 +47,6 @@ state_abbrev_to_fips = {
 # =================================================
 data['fips'] = data['state'].map(state_abbrev_to_fips)
 
-
 # =================================================
 # 6. Summary statistic function
 # =================================================
@@ -57,40 +56,38 @@ def compute_summary_stats(filtered_data):
     year_max = filtered_data['year'].max()
     if pd.isna(year_min) or pd.isna(year_max):
         return 0, 0, 0
-
+    
     year_span = year_max - year_min + 1
     avg_per_year = total_deaths / year_span if year_span > 0 else 0
 
     first_year_count = filtered_data[filtered_data['year'] == year_min].shape[0]
     last_year_count = filtered_data[filtered_data['year'] == year_max].shape[0]
     year_change = ((last_year_count - first_year_count) / first_year_count * 100) if first_year_count > 0 else 0
-
+    
     return total_deaths, avg_per_year, year_change
-
 
 # =================================================
 # 7. Chart-building helper functions
 # =================================================
 def create_bar_chart(data, x_col, y_col, title):
-    """Builds a bar chart with smaller dimensions."""
+    """Builds a bar chart."""
     if data.empty:
         return None
     chart = (
         alt.Chart(data)
         .mark_bar()
         .encode(
-            x=alt.X(x_col, title="Count", scale=alt.Scale(domain=[0, data[x_col].max() + 5])),
-            y=alt.Y(y_col, sort='-x', title=title),
+            x=alt.X(x_col),
+            y=alt.Y(y_col,sort='-x'),
             color=alt.Color(y_col, legend=None),
             tooltip=[x_col, y_col]
         )
-        .properties(title=title, width=200, height=300)  # Reduced size
+        .properties(title=title, width=500, height=400)
     )
     return chart
 
-
 def create_time_series(data, x_col, y_col, title):
-    """Builds a time series plot with smaller dimensions."""
+    """Builds a line chart (time series)."""
     if data.empty:
         return None
     chart = (
@@ -140,10 +137,9 @@ def create_multiselect_dropdown(id, options):
     ], style={"max-height": "200px", "overflow-y": "auto", "border": "1px solid #ccc", "padding": "5px"})
 
 
-cause_options = [{'label': 'Select/Unselect All', 'value': 'ALL'}] + [{'label': c, 'value': c} for c in
-                                                                      sorted(data['cause_short'].unique())]
-state_options = [{'label': 'Select/Unselect All', 'value': 'ALL'}] + [{'label': s, 'value': s} for s in
-                                                                      sorted(data['state'].unique())]
+
+cause_options = [{'label': 'Select/Unselect All', 'value': 'ALL'}] + [{'label': c, 'value': c} for c in sorted(data['cause_short'].unique())]
+state_options = [{'label': 'Select/Unselect All', 'value': 'ALL'}] + [{'label': s, 'value': s} for s in sorted(data['state'].unique())]
 
 canine_filter = html.Div([
     html.Label("Select Officer Type:", style={"font-weight": "bold", "margin-right": "10px"}),
@@ -223,7 +219,6 @@ app.layout = dbc.Container([
 # 11. Callback: Update charts based on filters
 # =================================================
 from dash.exceptions import PreventUpdate
-
 
 @app.callback(
     Output('cause-filter', 'value'),
