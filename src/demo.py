@@ -6,6 +6,8 @@ import altair as alt
 from vega_datasets import data as vega_data
 import webbrowser
 import plotly.express as px
+import dash.dash_table as dt
+
 
 # =================================================
 # 1. Load the CSV data
@@ -69,7 +71,7 @@ def compute_summary_stats(filtered_data):
 
 
 # =================================================
-# 7. Chart-building helper functions
+# 7. Chart-building and table-building helper functions
 # =================================================
 def create_bar_chart(data, x_col, y_col, title, y_axis_label="Category"):
     """Builds a bar chart with a custom Y-axis label and comma-formatted tooltips."""
@@ -113,11 +115,25 @@ def create_time_series(data, x_col, y_col, title):
 
 
 def create_us_heatmap(filtered_data):
-    """Creates a U.S. choropleth map with optimized layout and disabled zoom/pan."""
-    # Count occurrences of each state
+    """Creates a U.S. choropleth map where non-selected states remain visible in gray."""
+    # Count occurrences of each state (for coloring)
     state_counts = filtered_data["state"].value_counts().reset_index()
     state_counts.columns = ["state", "count"]
     state_counts["state"] = state_counts["state"].str.strip()
+
+    # Create a DataFrame with all states, ensuring unselected ones are visible
+    all_states = pd.DataFrame({"state": list(state_abbrev_to_fips.keys())})
+    state_counts = all_states.merge(state_counts, on="state", how="left").fillna(0)
+
+    # Define the original red color scale
+    color_scale = [
+        (0, "lightgray"),  # Unselected states in gray
+        (0.2, "#fee5d9"),  # Light red
+        (0.4, "#fcae91"),  # Soft red
+        (0.6, "#fb6a4a"),  # Medium red
+        (0.8, "#de2d26"),  # Darker red
+        (1, "#a50f15")  # Deep red for high values
+    ]
 
     # Create the choropleth map
     fig = px.choropleth(
@@ -125,44 +141,77 @@ def create_us_heatmap(filtered_data):
         locations="state",
         locationmode="USA-states",
         color="count",
-        color_continuous_scale="reds",
-        scope="usa",  # Focus on the U.S.
+        color_continuous_scale=color_scale,  # Use the improved red gradient
+        scope="usa",
         title="Mapping Fallen Officers: U.S. Deaths by State",
-        hover_data={"state": True, "count": True},  # Display state and count in tooltip
+        hover_data={"state": True, "count": True},
     )
 
     # Set hover template explicitly
-    fig.update_traces(hovertemplate="<b>%{location}</b><br>Deaths: %{z}<extra></extra>")
+    fig.update_traces(
+        hovertemplate="<b>%{location}</b><br>Deaths: %{z}<extra></extra>",
+        marker=dict(line=dict(color='black', width=0.5))  # Add borders to states
+    )
 
     # Optimize layout: Disable zooming and panning
     fig.update_layout(
         geo=dict(
-            showframe=False,  # Remove border frame
-            showcoastlines=False,  # Remove ocean/land borders
-            showcountries=False,  # Hide country borders
+            showframe=False,
+            showcoastlines=False,
+            showcountries=False,
             showland=True,
             landcolor="white",
             projection=dict(
-                type="albers usa",  # Fix the map projection for USA
-                scale=1  # Adjust zoom level
+                type="albers usa",
+                scale=1.05 if len(state_counts) > 10 else 1.2  # Adjust zoom based on selected states
             ),
-            center={"lat": 38, "lon": -96}  # Center the map correctly on the USA
+            center={"lat": 38, "lon": -96}
         ),
-        dragmode=False,  # Disables dragging/zooming
-        uirevision="fixed",  # Prevents zoom reset when interacting with filters
-        margin={"r": 10, "t": 10, "l": 10, "b": 10},  # Reduce margins
-        height=400,  # Adjust height for better visibility
+        dragmode=False,
+        uirevision="fixed",
+        margin={"r": 10, "t": 10, "l": 10, "b": 10},
+        height=400,
         title=dict(
             text="Mapping Fallen Officers: U.S. Deaths by State",
-            font=dict(size=16),  # Adjust title font size
-            x=0.5,  # Center the title
+            font=dict(size=16),
+            x=0.5,
             xanchor="center",
-            y=0.95,  # Move title closer to the graph
+            y=0.95,
             yanchor="top"
         )
     )
 
     return fig
+
+def create_recent_officer_table(filtered_data):
+    """Creates a table showing the 5 most recently fallen officers."""
+    if filtered_data.empty:
+        return dt.DataTable(
+            columns=[{"name": col, "id": col} for col in ["Person", "Date", "Dept Name", "State", "Cause"]],
+            data=[],
+            style_table={'width': '100%', 'overflowX': 'auto'},
+            style_cell={'textAlign': 'left'}
+        )
+
+    # Get the 5 most recent fallen officers (latest date)
+    recent_officers = filtered_data.sort_values(by="date", ascending=False).head(5)
+
+    # Select columns and rename them for display
+    recent_officers = recent_officers[["person", "date", "dept_name", "state", "cause_short"]].rename(
+        columns={"person": "Person", "date": "Date", "dept_name": "Dept Name", "state": "State", "cause_short": "Cause"}
+    )
+
+    # Convert DataFrame to Dash Table
+    table = dt.DataTable(
+        columns=[{"name": col, "id": col} for col in recent_officers.columns],
+        data=recent_officers.to_dict("records"),
+        style_table={'width': '100%', 'overflowX': 'auto'},
+        style_cell={'textAlign': 'left', 'padding': '5px'},
+        style_header={'fontWeight': 'bold', 'textAlign': 'center'},
+        style_as_list_view=True
+    )
+
+    return table
 
 
 # =================================================
@@ -227,33 +276,36 @@ app.layout = dbc.Container([
 
     dbc.Row([
         dbc.Col(sidebar, width=2, style={"border-right": "1px solid #ccc", "padding-right": "12px"}),
-        # Slightly reduced sidebar width
 
         dbc.Col([
             # Summary statistics row
             dbc.Row([
                 dbc.Col(dbc.Card([dbc.CardBody([html.H5("Total Deaths"), html.P(id="total-deaths")])]), width=4),
-                dbc.Col(dbc.Card([dbc.CardBody([html.H5("Average Deaths per Year"), html.P(id="avg-deaths")])]),
-                        width=4),
+                dbc.Col(dbc.Card([dbc.CardBody([html.H5("Average Deaths per Year"), html.P(id="avg-deaths")])]), width=4),
                 dbc.Col(dbc.Card([dbc.CardBody([html.H5("Annual Growth Rate"), html.P(id="growth-rate")])]), width=4)
             ], className="mb-3"),
 
             # Charts row
             dbc.Row([
+                # Left: Time series & Bar Charts
                 dbc.Col([
                     html.Iframe(id='time-series', style={'width': '100%', 'height': '400px'}, width=12),
-                    # Adjusted height
                     dbc.Row([
                         dbc.Col(html.Iframe(id='bar-chart', style={'width': '100%', 'height': '400px'}), width=5),
                         dbc.Col(html.Iframe(id='bar-chart2', style={'width': '100%', 'height': '400px'}), width=7)
                     ], className="mt-3")
-                ], width=7),  # Expanded space for charts
+                ], width=7),
 
-                dbc.Col(html.Iframe(id='us-map', style={'width': '100%', 'height': '800px'}), width=5)
-                # Slightly reduced map height
+                # Right: US Map & Officer Table
+                dbc.Col([
+                    html.Iframe(id='us-map', style={'width': '100%', 'height': '450px'}),  
+                    html.H5("Most Recently Fallen Officers (Filtered View)", 
+                            style={"text-align": "center", "margin-top": "0px"}),  
+                    html.Div(id='recent-officer-table', style={"margin-top": "0px"})
+                ], width=5)
             ], className="mt-3")
-        ], width=9)  # Increased width for main content
-    ], align="start", className="mt-2", style={"padding-bottom": "15px"})  # Added spacing
+        ], width=9)
+    ], align="start", className="mt-2", style={"padding-bottom": "15px"})
 ], fluid=True)
 
 # =================================================
@@ -307,7 +359,8 @@ def update_state_filter(selected_values):
         Output('avg-deaths', 'children'),
         Output('growth-rate', 'children'),
         Output("police-button", "color"),
-        Output("canine-button", "color")
+        Output("canine-button", "color"),
+        Output("recent-officer-table", "children")  # New Output for the table
     ],
     [
         Input('year-filter', 'value'),
@@ -325,9 +378,9 @@ def render_dashboard(year_filter, cause_filter, state_filter, police_clicks, can
 
     start_year, end_year = year_filter
     filtered_data = filtered_data[
-        (filtered_data['year'] >= start_year) &
+        (filtered_data['year'] >= start_year) & 
         (filtered_data['year'] <= end_year)
-        ]
+    ]
 
     if 'ALL' not in cause_filter:
         filtered_data = filtered_data[filtered_data['cause_short'].isin(cause_filter)]
@@ -340,18 +393,13 @@ def render_dashboard(year_filter, cause_filter, state_filter, police_clicks, can
     elif canine_active and not police_active:
         filtered_data = filtered_data[filtered_data['canine'] == True]
     elif not police_active and not canine_active:
-        return "", "", "", "", "0", "0", "0", "secondary", "secondary"
+        return "", "", "", "", "0", "0", "0", "secondary", "secondary", ""
 
     if filtered_data.empty:
-        return "", "", "", "", "0", "0", "0", "secondary", "secondary"
+        return "", "", "", "", "0", "0", "0", "secondary", "secondary", ""
 
     # Compute summary stats
     total_deaths, avg_per_year, year_change = compute_summary_stats(filtered_data)
-
-    # Format numbers with commas
-    total_deaths_str = f"{total_deaths:,}"
-    avg_per_year_str = f"{avg_per_year:,.2f}"
-    year_change_str = f"{year_change:,.2f}%"
 
     # Prepare data for charts
     cause_data = (
@@ -377,16 +425,19 @@ def render_dashboard(year_filter, cause_filter, state_filter, police_clicks, can
 
     # Build charts
     bar_chart_obj = create_bar_chart(
-    cause_data.sort_values(by='Count', ascending=False).head(10),
-    'Count', 'cause_short', 'Top 10 Death Causes', y_axis_label="Cause of Death"
+        cause_data.sort_values(by='Count', ascending=False).head(10),
+        'Count', 'cause_short', 'Top 10 Death Causes', y_axis_label="Cause of Death"
     )
 
     bar_chart_obj_2 = create_bar_chart(
-    dept_data.sort_values(by='Count', ascending=False).head(10),
-    'Count', 'dept', 'Top 10 Departments', y_axis_label="Department"
+        dept_data.sort_values(by='Count', ascending=False).head(10),
+        'Count', 'dept', 'Top 10 Departments', y_axis_label="Department"
     )
     time_series_obj = create_time_series(time_series_data, 'year', 'Count', 'Deaths Over Time')
     us_map_obj = create_us_heatmap(filtered_data)
+
+    # Get the table of the most recent fallen officer
+    recent_officer_table = create_recent_officer_table(filtered_data)
 
     # Convert Altair charts to HTML
     bar_chart_html = bar_chart_obj.to_html() if bar_chart_obj else ""
@@ -397,7 +448,11 @@ def render_dashboard(year_filter, cause_filter, state_filter, police_clicks, can
     police_color = "primary" if police_active else "secondary"
     canine_color = "primary" if canine_active else "secondary"
 
-    return bar_chart_html, bar_chart2_html, time_series_html, us_map_html, total_deaths_str, avg_per_year_str, year_change_str, police_color, canine_color
+    return (
+        bar_chart_html, bar_chart2_html, time_series_html, us_map_html,
+        f"{total_deaths:,}", f"{avg_per_year:,.2f}", f"{year_change:,.2f}%",
+        police_color, canine_color, recent_officer_table
+    )
 
 
 def update_year_display(year_range):
