@@ -47,6 +47,7 @@ state_abbrev_to_fips = {
 # =================================================
 data['fips'] = data['state'].map(state_abbrev_to_fips)
 
+
 # =================================================
 # 6. Summary statistic function
 # =================================================
@@ -56,49 +57,51 @@ def compute_summary_stats(filtered_data):
     year_max = filtered_data['year'].max()
     if pd.isna(year_min) or pd.isna(year_max):
         return 0, 0, 0
-    
+
     year_span = year_max - year_min + 1
     avg_per_year = total_deaths / year_span if year_span > 0 else 0
 
     first_year_count = filtered_data[filtered_data['year'] == year_min].shape[0]
     last_year_count = filtered_data[filtered_data['year'] == year_max].shape[0]
     year_change = ((last_year_count - first_year_count) / first_year_count * 100) if first_year_count > 0 else 0
-    
+
     return total_deaths, avg_per_year, year_change
+
 
 # =================================================
 # 7. Chart-building helper functions
 # =================================================
 def create_bar_chart(data, x_col, y_col, title):
-    """Builds a bar chart."""
+    """Builds a bar chart with smaller dimensions."""
     if data.empty:
         return None
     chart = (
         alt.Chart(data)
         .mark_bar()
         .encode(
-            x=alt.X(x_col),
-            y=alt.Y(y_col,sort='-x'),
+            x=alt.X(x_col, title="Count", scale=alt.Scale(domain=[0, data[x_col].max() + 5])),
+            y=alt.Y(y_col, sort='-x', title=title),
             color=alt.Color(y_col, legend=None),
             tooltip=[x_col, y_col]
         )
-        .properties(title=title, width=500, height=400)
+        .properties(title=title, width=200, height=300)  # Reduced size
     )
     return chart
 
+
 def create_time_series(data, x_col, y_col, title):
-    """Builds a line chart (time series)."""
+    """Builds a time series plot with smaller dimensions."""
     if data.empty:
         return None
     chart = (
         alt.Chart(data)
         .mark_line()
         .encode(
-            x=alt.X(x_col, title='Year'),
+            x=alt.X(x_col, title='Year', axis=alt.Axis(format='d', tickMinStep=5)),
             y=alt.Y(y_col, title='Number of Deaths'),
             tooltip=[x_col, y_col]
         )
-        .properties(title=title, width=500, height=400)
+        .properties(title=title, width=750, height=300)  # Reduced size
     )
     return chart
 
@@ -108,7 +111,7 @@ def create_us_heatmap(filtered_data):
     state_counts = filtered_data["state"].value_counts().reset_index()
     state_counts.columns = ["state", "count"]  # rename column
     state_counts["state"] = state_counts["state"].str.strip()
-    print(state_counts)
+
     # Create the choropleth map
     fig = px.choropleth(
         state_counts,
@@ -120,6 +123,7 @@ def create_us_heatmap(filtered_data):
         title="Mapping Fallen Officers: U.S. Deaths by State",
     )
     return fig
+
 
 # =================================================
 # 8. Sidebar: user filters
@@ -135,14 +139,17 @@ def create_multiselect_dropdown(id, options):
         )
     ], style={"max-height": "200px", "overflow-y": "auto", "border": "1px solid #ccc", "padding": "5px"})
 
-cause_options = [{'label': 'Select All', 'value': 'ALL'}] + [{'label': c, 'value': c} for c in sorted(data['cause_short'].unique())]
-state_options = [{'label': 'Select All', 'value': 'ALL'}] + [{'label': s, 'value': s} for s in sorted(data['state'].unique())]
+
+cause_options = [{'label': 'Select/Unselect All', 'value': 'ALL'}] + [{'label': c, 'value': c} for c in
+                                                                      sorted(data['cause_short'].unique())]
+state_options = [{'label': 'Select/Unselect All', 'value': 'ALL'}] + [{'label': s, 'value': s} for s in
+                                                                      sorted(data['state'].unique())]
 
 canine_filter = html.Div([
     html.Label("Select Officer Type:", style={"font-weight": "bold", "margin-right": "10px"}),
     dbc.ButtonGroup([
-        dbc.Button("Police", id="police-button", color="primary", outline=False, n_clicks=1), 
-        dbc.Button("Canine", id="canine-button", color="primary", outline=False, n_clicks=1), 
+        dbc.Button("Police", id="police-button", color="primary", outline=False, n_clicks=1),
+        dbc.Button("Canine", id="canine-button", color="primary", outline=False, n_clicks=1),
     ])
 ], style={"text-align": "right", "margin-bottom": "10px"})
 
@@ -152,7 +159,7 @@ sidebar = html.Div([
         id='year-filter',
         min=data['year'].min(),
         max=data['year'].max(),
-        marks={i: str(i) for i in range(data['year'].min(), data['year'].max()+1, 50)},
+        marks={i: str(i) for i in range(data['year'].min(), data['year'].max() + 1, 50)},
         step=1,
         value=[data['year'].min(), data['year'].max()],
         tooltip={"placement": "bottom", "always_visible": True}
@@ -166,7 +173,6 @@ sidebar = html.Div([
     create_multiselect_dropdown('state-filter', state_options),
 ])
 
-
 # =================================================
 # 9. Summary stats area
 # =================================================
@@ -179,49 +185,81 @@ summary_section = html.Div(id='summary-stats')
 app.layout = dbc.Container([
     dbc.Row([
         dbc.Col(html.H1("Police Officer Deaths Dashboard"), width=9),
-        dbc.Col(canine_filter, width=3, style={"text-align": "right"})  # Aligns to top-right
+        dbc.Col(canine_filter, width=3, style={"text-align": "right"})
     ], align="center", className="mb-3"),
-    
+
     dbc.Row([
-        dbc.Col(sidebar, width=3, style={"border-right": "1px solid #ccc", "padding-right": "15px"}),
-        
+        dbc.Col(sidebar, width=2, style={"border-right": "1px solid #ccc", "padding-right": "12px"}),
+        # Slightly reduced sidebar width
+
         dbc.Col([
-            # Summary stats in horizontal boxes
+            # Summary statistics row
             dbc.Row([
                 dbc.Col(dbc.Card([dbc.CardBody([html.H5("Total Deaths"), html.P(id="total-deaths")])]), width=4),
-                dbc.Col(dbc.Card([dbc.CardBody([html.H5("Average Deaths per Year"), html.P(id="avg-deaths")])]), width=4),
+                dbc.Col(dbc.Card([dbc.CardBody([html.H5("Average Deaths per Year"), html.P(id="avg-deaths")])]),
+                        width=4),
                 dbc.Col(dbc.Card([dbc.CardBody([html.H5("Annual Growth Rate"), html.P(id="growth-rate")])]), width=4)
             ], className="mb-3"),
-            
+
+            # Charts row
             dbc.Row([
-                # Left side (Time Series on top, Bar Charts below it)
                 dbc.Col([
-                    html.Iframe(id='time-series', style={'width': '100%', 'height': '400px'}),
+                    html.Iframe(id='time-series', style={'width': '100%', 'height': '400px'}, width=12),
+                    # Adjusted height
                     dbc.Row([
                         dbc.Col(html.Iframe(id='bar-chart', style={'width': '100%', 'height': '400px'}), width=6),
                         dbc.Col(html.Iframe(id='bar-chart2', style={'width': '100%', 'height': '400px'}), width=6)
                     ], className="mt-3")
-                ], width=6),
-                
-                # Right side (Map Graph)
-                dbc.Col(html.Iframe(id='us-map', style={'width': '100%', 'height': '700px'}), width=6)
+                ], width=7),  # Expanded space for charts
+
+                dbc.Col(html.Iframe(id='us-map', style={'width': '100%', 'height': '800px'}), width=5)
+                # Slightly reduced map height
             ], className="mt-3")
-        ], width=9)
-    ], align="start", className="mt-2")
+        ], width=9)  # Increased width for main content
+    ], align="start", className="mt-2", style={"padding-bottom": "15px"})  # Added spacing
 ], fluid=True)
 
 # =================================================
 # 11. Callback: Update charts based on filters
 # =================================================
+from dash.exceptions import PreventUpdate
+
+
+@app.callback(
+    Output('cause-filter', 'value'),
+    Input('cause-filter', 'value'),
+    prevent_initial_call=True
+)
 def update_cause_filter(selected_values):
+    """Handles 'Select All' for cause-filter."""
+    all_options = [opt['value'] for opt in cause_options[1:]]  # Exclude "Select All"
+
     if 'ALL' in selected_values:
-        return [opt['value'] for opt in cause_options[1:]] if len(selected_values) == 1 else []
+        if len(selected_values) == 1:  # If only "Select All" is selected, select all causes
+            return all_options
+        else:  # If "Select All" was unchecked, unselect everything
+            return []
+
     return selected_values
 
+
+@app.callback(
+    Output('state-filter', 'value'),
+    Input('state-filter', 'value'),
+    prevent_initial_call=True
+)
 def update_state_filter(selected_values):
+    """Handles 'Select All' for state-filter."""
+    all_options = [opt['value'] for opt in state_options[1:]]  # Exclude "Select All"
+
     if 'ALL' in selected_values:
-        return [opt['value'] for opt in state_options[1:]] if len(selected_values) == 1 else []
+        if len(selected_values) == 1:  # If only "Select All" is selected, select all states
+            return all_options
+        else:  # If "Select All" was unchecked, unselect everything
+            return []
+
     return selected_values
+
 
 @app.callback(
     [
@@ -248,12 +286,12 @@ def render_dashboard(year_filter, cause_filter, state_filter, police_clicks, can
     canine_active = canine_clicks % 2 == 1
 
     filtered_data = data.copy()
-    
+
     start_year, end_year = year_filter
     filtered_data = filtered_data[
-        (filtered_data['year'] >= start_year) & 
+        (filtered_data['year'] >= start_year) &
         (filtered_data['year'] <= end_year)
-    ]
+        ]
 
     if 'ALL' not in cause_filter:
         filtered_data = filtered_data[filtered_data['cause_short'].isin(cause_filter)]
@@ -297,8 +335,10 @@ def render_dashboard(year_filter, cause_filter, state_filter, police_clicks, can
     )
 
     # Build charts
-    bar_chart_obj = create_bar_chart(cause_data.sort_values(by='Count', ascending=False).head(10), 'Count', 'cause_short', 'Top 10 death causes')
-    bar_chart_obj_2 = create_bar_chart(dept_data.sort_values(by='Count', ascending=False).head(10), 'Count', 'dept', 'Top 10 departments')
+    bar_chart_obj = create_bar_chart(cause_data.sort_values(by='Count', ascending=False).head(10), 'Count',
+                                     'cause_short', 'Top 10 death causes')
+    bar_chart_obj_2 = create_bar_chart(dept_data.sort_values(by='Count', ascending=False).head(10), 'Count', 'dept',
+                                       'Top 10 departments')
     time_series_obj = create_time_series(time_series_data, 'year', 'Count', 'Deaths Over Time')
     us_map_obj = create_us_heatmap(filtered_data)
 
@@ -311,11 +351,14 @@ def render_dashboard(year_filter, cause_filter, state_filter, police_clicks, can
     police_color = "primary" if police_active else "secondary"
     canine_color = "primary" if canine_active else "secondary"
 
-    return bar_chart_html, bar_chart2_html, time_series_html, us_map_html, str(total_deaths), str(round(avg_per_year, 2)), f"{round(year_change, 2)}%", police_color, canine_color
+    return bar_chart_html, bar_chart2_html, time_series_html, us_map_html, str(total_deaths), str(
+        round(avg_per_year, 2)), f"{round(year_change, 2)}%", police_color, canine_color
 
 
 def update_year_display(year_range):
     return f"Selected Years: {year_range[0]} - {year_range[1]}"
+
+
 # =================================================
 # 12. Launch the app: only open one browser window
 # =================================================
