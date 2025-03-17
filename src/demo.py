@@ -118,9 +118,10 @@ def create_time_series(data, x_col, y_col, title):
 
 
 def create_us_heatmap(filtered_data):
+    """Creates a U.S. choropleth map with optimized layout and disabled zoom/pan."""
     # Count occurrences of each state
     state_counts = filtered_data["state"].value_counts().reset_index()
-    state_counts.columns = ["state", "count"]  # rename column
+    state_counts.columns = ["state", "count"]
     state_counts["state"] = state_counts["state"].str.strip()
 
     # Create the choropleth map
@@ -130,9 +131,42 @@ def create_us_heatmap(filtered_data):
         locationmode="USA-states",
         color="count",
         color_continuous_scale="reds",
-        scope="usa",
+        scope="usa",  # Focus on the U.S.
         title="Mapping Fallen Officers: U.S. Deaths by State",
+        hover_data={"state": True, "count": True},  # Display state and count in tooltip
     )
+
+    # Set hover template explicitly
+    fig.update_traces(hovertemplate="<b>%{location}</b><br>Deaths: %{z}<extra></extra>")
+
+    # Optimize layout: Disable zooming and panning
+    fig.update_layout(
+        geo=dict(
+            showframe=False,  # Remove border frame
+            showcoastlines=False,  # Remove ocean/land borders
+            showcountries=False,  # Hide country borders
+            showland=True,
+            landcolor="white",
+            projection=dict(
+                type="albers usa",  # Fix the map projection for USA
+                scale=1  # Adjust zoom level
+            ),
+            center={"lat": 38, "lon": -96}  # Center the map correctly on the USA
+        ),
+        dragmode=False,  # Disables dragging/zooming
+        uirevision="fixed",  # Prevents zoom reset when interacting with filters
+        margin={"r": 10, "t": 10, "l": 10, "b": 10},  # Reduce margins
+        height=400,  # Adjust height for better visibility
+        title=dict(
+            text="Mapping Fallen Officers: U.S. Deaths by State",
+            font=dict(size=16),  # Adjust title font size
+            x=0.5,  # Center the title
+            xanchor="center",
+            y=0.95,  # Move title closer to the graph
+            yanchor="top"
+        )
+    )
+
     return fig
 
 
