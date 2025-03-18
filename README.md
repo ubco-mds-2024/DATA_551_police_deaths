@@ -23,7 +23,7 @@ Once executed, the dashboard will automatically launch in your **web browser**, 
 - **Hover tooltips** provide state-specific fatality counts.
 - **Filters allow refinement** of data based on time range, cause, and officer type.
 
-### *2. Top Causes of Death: Bar Chart**
+### **2. Top Causes of Death: Bar Chart**
 - **Highlights the top 10 causes of death** among fallen officers.
 - **Dynamic updates** based on selected filters.
 - **Tooltips display exact values** when hovering over bars.
