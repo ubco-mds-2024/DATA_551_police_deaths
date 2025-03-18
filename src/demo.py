@@ -54,21 +54,27 @@ data['fips'] = data['state'].map(state_abbrev_to_fips)
 # 6. Summary statistic function
 # =================================================
 def compute_summary_stats(filtered_data):
+    """Computes total deaths, average per year, and deaths in recent time periods."""
+    if filtered_data.empty:
+        return 0, 0, 0, 0, 0
+
     total_deaths = len(filtered_data)
     year_min = filtered_data['year'].min()
     year_max = filtered_data['year'].max()
-    if pd.isna(year_min) or pd.isna(year_max):
-        return 0, 0, 0
 
-    year_span = year_max - year_min + 1
-    avg_per_year = total_deaths / year_span if year_span > 0 else 0
+    # If the dataset contains only one year, avoid division by zero
+    year_span = max(1, year_max - year_min + 1)
+    avg_per_year = total_deaths / year_span
 
-    first_year_count = filtered_data[filtered_data['year'] == year_min].shape[0]
-    last_year_count = filtered_data[filtered_data['year'] == year_max].shape[0]
-    year_change = ((last_year_count - first_year_count) / first_year_count * 100) if first_year_count > 0 else 0
+    # Dynamically determine the latest year from the filtered data
+    current_year = year_max
 
-    return total_deaths, avg_per_year, year_change
+    # Calculate deaths within specific periods based on available data
+    deaths_last_year = filtered_data[filtered_data['year'] == (current_year - 1)].shape[0] if current_year - 1 >= year_min else 0
+    deaths_last_5_years = filtered_data[filtered_data['year'] >= max(year_min, current_year - 5)].shape[0]
+    deaths_last_10_years = filtered_data[filtered_data['year'] >= max(year_min, current_year - 10)].shape[0]
 
+    return total_deaths, avg_per_year, deaths_last_year, deaths_last_5_years, deaths_last_10_years
 
 # =================================================
 # 7. Chart-building and table-building helper functions
@@ -269,6 +275,14 @@ summary_section = html.Div(id='summary-stats')
 # =================================================
 # Add the button group back in the layout
 app.layout = dbc.Container([
+
+    dcc.Markdown("""
+        <style>
+            .card { height: 100%; }
+            .card-body { display: flex; flex-direction: column; justify-content: center; align-items: center; }
+        </style>
+    """, dangerously_allow_html=True),
+
     dbc.Row([
         dbc.Col(html.H1("Police Officer Deaths Dashboard"), width=9),
         dbc.Col(canine_filter, width=3, style={"text-align": "right"})
@@ -280,10 +294,42 @@ app.layout = dbc.Container([
         dbc.Col([
             # Summary statistics row
             dbc.Row([
-                dbc.Col(dbc.Card([dbc.CardBody([html.H5("Total Deaths"), html.P(id="total-deaths")])]), width=4),
-                dbc.Col(dbc.Card([dbc.CardBody([html.H5("Average Deaths per Year"), html.P(id="avg-deaths")])]), width=4),
-                dbc.Col(dbc.Card([dbc.CardBody([html.H5("Annual Growth Rate"), html.P(id="growth-rate")])]), width=4)
-            ], className="mb-3"),
+                dbc.Col(dbc.Card([
+                    dbc.CardBody([
+                        html.H5("Total Deaths", className="card-title text-center"),
+                        html.P(id="total-deaths", className="card-text text-center")
+                    ])
+                ], className="h-100"), width={"xs": 12, "sm": 6, "md": 3, "lg": 2}),  # Dynamic size
+
+                dbc.Col(dbc.Card([
+                    dbc.CardBody([
+                        html.H5("Average Deaths per Year", className="card-title text-center"),
+                        html.P(id="avg-deaths", className="card-text text-center")
+                    ])
+                ], className="h-100"), width={"xs": 12, "sm": 6, "md": 3, "lg": 2}),
+
+                dbc.Col(dbc.Card([
+                    dbc.CardBody([
+                        html.H5("Deaths in the Last 10 Years", className="card-title text-center"),
+                        html.P(id="deaths-last-10", className="card-text text-center")
+                    ])
+                ], className="h-100"), width={"xs": 12, "sm": 6, "md": 3, "lg": 2}),
+
+                dbc.Col(dbc.Card([
+                    dbc.CardBody([
+                        html.H5("Deaths in the Last 5 Years", className="card-title text-center"),
+                        html.P(id="deaths-last-5", className="card-text text-center")
+                    ])
+                ], className="h-100"), width={"xs": 12, "sm": 6, "md": 3, "lg": 2}),
+
+                dbc.Col(dbc.Card([
+                    dbc.CardBody([
+                        html.H5("Deaths in the Last Year", className="card-title text-center"),
+                        html.P(id="deaths-last-year", className="card-text text-center")
+                    ])
+                ], className="h-100"), width={"xs": 12, "sm": 6, "md": 3, "lg": 2})
+            ], className="mb-3 align-items-stretch"),
+
 
             # Charts row
             dbc.Row([
@@ -298,9 +344,9 @@ app.layout = dbc.Container([
 
                 # Right: US Map & Officer Table
                 dbc.Col([
-                    html.Iframe(id='us-map', style={'width': '100%', 'height': '450px'}),  
-                    html.H5("Most Recently Fallen Officers (Filtered View)", 
-                            style={"text-align": "center", "margin-top": "0px"}),  
+                    html.Iframe(id='us-map', style={'width': '100%', 'height': '450px'}),
+                    html.H5("Most Recently Fallen Officers (Filtered View)",
+                            style={"text-align": "center", "margin-top": "0px"}),
                     html.Div(id='recent-officer-table', style={"margin-top": "0px"})
                 ], width=5)
             ], className="mt-3")
@@ -357,10 +403,12 @@ def update_state_filter(selected_values):
         Output('us-map', 'srcDoc'),
         Output('total-deaths', 'children'),
         Output('avg-deaths', 'children'),
-        Output('growth-rate', 'children'),
+        Output('deaths-last-year', 'children'),
+        Output('deaths-last-5', 'children'),
+        Output('deaths-last-10', 'children'),
         Output("police-button", "color"),
         Output("canine-button", "color"),
-        Output("recent-officer-table", "children")  # New Output for the table
+        Output("recent-officer-table", "children")
     ],
     [
         Input('year-filter', 'value'),
@@ -393,13 +441,13 @@ def render_dashboard(year_filter, cause_filter, state_filter, police_clicks, can
     elif canine_active and not police_active:
         filtered_data = filtered_data[filtered_data['canine'] == True]
     elif not police_active and not canine_active:
-        return "", "", "", "", "0", "0", "0", "secondary", "secondary", ""
+        return "", "", "", "", "0", "0", "0", "0", "0", "secondary", "secondary", ""
 
     if filtered_data.empty:
-        return "", "", "", "", "0", "0", "0", "secondary", "secondary", ""
+        return "", "", "", "", "0", "0", "0", "0", "0", "secondary", "secondary", ""
 
-    # Compute summary stats
-    total_deaths, avg_per_year, year_change = compute_summary_stats(filtered_data)
+    # Compute summary stats using the latest year in the filtered dataset
+    total_deaths, avg_per_year, deaths_last_year, deaths_last_5, deaths_last_10 = compute_summary_stats(filtered_data)
 
     # Prepare data for charts
     cause_data = (
@@ -436,7 +484,7 @@ def render_dashboard(year_filter, cause_filter, state_filter, police_clicks, can
     time_series_obj = create_time_series(time_series_data, 'year', 'Count', 'Deaths Over Time')
     us_map_obj = create_us_heatmap(filtered_data)
 
-    # Get the table of the most recent fallen officer
+    # Get the table of the most recent fallen officers
     recent_officer_table = create_recent_officer_table(filtered_data)
 
     # Convert Altair charts to HTML
@@ -450,8 +498,8 @@ def render_dashboard(year_filter, cause_filter, state_filter, police_clicks, can
 
     return (
         bar_chart_html, bar_chart2_html, time_series_html, us_map_html,
-        f"{total_deaths:,}", f"{avg_per_year:,.2f}", f"{year_change:,.2f}%",
-        police_color, canine_color, recent_officer_table
+        f"{total_deaths:,}", f"{avg_per_year:,.2f}", f"{deaths_last_year:,}", 
+        f"{deaths_last_5:,}", f"{deaths_last_10:,}", police_color, canine_color, recent_officer_table
     )
 
 
