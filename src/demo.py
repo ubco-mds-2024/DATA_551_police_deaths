@@ -350,9 +350,7 @@ app.layout = dbc.Container([
                 # Right: US Map & Officer Table
                 dbc.Col([
                     html.Iframe(id='us-map', style={'width': '100%', 'height': '450px'}),
-                    html.H5("Most Recently Fallen Officers (Filtered View)",
-                            style={"text-align": "center", "margin-top": "0px"}),
-                    html.Div(id='recent-officer-table', style={"margin-top": "0px"})
+                    html.Div(id="recent-officer-section")
                 ], width=5)
             ], className="mt-3")
         ], width=9)
@@ -430,7 +428,7 @@ def update_state_filter(selected_values):
         Output("all-button", "color"),
         Output("human-button", "color"),
         Output("canine-button", "color"),
-        Output("recent-officer-table", "children")
+        Output("recent-officer-section", "children")
     ],
     [
         Input('year-filter', 'value'),
@@ -553,10 +551,15 @@ def render_dashboard(year_filter, cause_filter, state_filter, all_clicks, human_
     human_color = "primary" if human_active else "secondary"
     canine_color = "primary" if canine_active else "secondary"
 
+    recent_officer_section = html.Div([
+    html.H5("Most Recently Fallen Officers (Filtered View)", style={"text-align": "center", "margin-top": "0px"}),
+    recent_officer_table
+    ]) if not filtered_data.empty else ""  # Hide title & table if empty
+
     return (
         bar_chart_html, bar_chart2_html, time_series_html, us_map_html,
         f"{total_deaths:,}", f"{avg_per_year:,.2f}", f"{deaths_last_year:,}", 
-        f"{deaths_last_5:,}", f"{deaths_last_10:,}", all_color, human_color, canine_color, recent_officer_table
+        f"{deaths_last_5:,}", f"{deaths_last_10:,}", all_color, human_color, canine_color, recent_officer_section
     )
 
 def update_year_display(year_range):
