@@ -10,10 +10,55 @@ python demo.py
 ```
 Once executed, the dashboard will automatically launch in your **web browser**, providing an interactive interface for exploring the dataset.
 
-# DATA_551_police_deaths  
+---
 
 ## **Dashboard Preview**  
-![image](https://github.com/user-attachments/assets/0df86edd-87fd-4f5e-8b3e-e5ce3225b6df)  
+![dashboard](https://github.com/user-attachments/assets/5cbb71b1-d09f-46fd-a5f2-82e330509441)
+
+---
+## **Dashboard Features & Visualizations**
+
+### **1. Geographic Analysis: U.S. Map**
+- **Color-coded choropleth map** displaying the distribution of fallen officers by state.
+- **Hover tooltips** provide state-specific fatality counts.
+- **Filters allow refinement** of data based on time range, cause, and officer type.
+
+### **2. Top Causes of Death: Bar Chart**
+- **Highlights the top 10 causes of death** among fallen officers.
+- **Dynamic updates** based on selected filters.
+- **Tooltips display exact values** when hovering over bars.
+
+### **3. Temporal Trends: Time-Series Chart**
+- **Displays fluctuations in police fatalities over time**.
+- **Interactive x-axis allows zooming and panning**.
+- Identifies **spikes and declines in incidents**.
+
+### **4. Department-Level Insights: Bar Chart**
+- **Lists the top 10 law enforcement departments** with the highest number of fallen officers.
+- **Sortable by count** for deeper department-specific analysis.
+
+### **5. Summary Statistics**
+Provides **key numerical insights** into fallen officers, dynamically updating based on user selection:
+- **Total Deaths**: Number of fallen officers in the selected period.
+- **Average Deaths Per Year**: Based on the filtered dataset.
+- **Deaths in Most Recent 10 Years of Selection**.
+- **Deaths in Most Recent 5 Years of Selection**.
+- **Deaths in Most Recent Year of Selection**.
+
+### **6. Interactive Filtering Options**
+Users can **refine the dataset** using multiple filtering tools:
+- **Time Range Selector**: Adjustable slider to filter data by year.
+- **Cause of Death Multi-Select**: Allows filtering by specific fatality causes.
+- **State Selector**: Enables focus on individual or multiple U.S. states.
+- **Officer Type Toggle**: Users can view **all officers, human officers only, or K9s only**.
+
+### **7. Recently Fallen Officers**
+- A **table displaying recent fallen officers** based on applied filters.
+- Displays **names, departments, and End of Watch (EOW) dates**.
+
+### **8. Informational Sections**
+- **About Fallen Officers**: Educational section explaining **why** this data matters and **trends in police fatalities**.
+- **About the Data**: Provides dataset details, source information (ODMP, FiveThirtyEight), and key variables.
 
 ---
 
@@ -79,33 +124,6 @@ The dashboard’s **interactive design and dynamic filters** enable her to **eff
 
 ---
 
-## **Dashboard Features & Visualizations**  
-
-### **1. Geographic Analysis: U.S. Map**  
-- **Color-coded map** displays the geographic distribution of deaths.  
-- **Hover tooltips** show state-specific statistics.  
-- **Clickable states** allow users to drill down into detailed regional data.  
-
-### **2. Top Causes of Death: Bar Chart**  
-- Highlights **top 10 causes of death** with clear labels.  
-- Includes **interactive tooltips** for additional context.  
-
-### **3. Temporal Trends: Time-Series Histogram**  
-- Visualizes **fluctuations in police fatalities over time**.  
-- Identifies **spikes and declines in incidents**.  
-
-### **4. Department-Level Insights: Bar Chart**  
-- Displays **top 10 departments with the highest number of deaths**.  
-
-### **5. Filters and Summary Statistics**  
-- **Side panel** allows users to filter by:  
-  - **Cause of Death**  
-  - **Time Range** (interactive slider & input box)  
-  - **Geographic Region** (states or departments)  
-- Displays **summary statistics**, including:  
-  - **Total deaths, monthly/yearly averages, and year-over-year percentage changes**.  
-
----
 
 ## **User Experience & Design**  
 
