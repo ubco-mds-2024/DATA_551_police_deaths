@@ -30,8 +30,7 @@ alt.data_transformers.disable_max_rows()
 # =================================================
 # 3. Initialize Dash
 # =================================================
-app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
-app.title = "Police Officer Deaths Dashboard"
+app = dash.Dash(__name__, title="Police Officer Deaths Dashboard", external_stylesheets=[dbc.themes.BOOTSTRAP])
 
 # =================================================
 # 4. State Abbreviation -> FIPS Mapping
@@ -660,4 +659,3 @@ def update_year_display(year_range):
 server = app.server  
 if __name__ == '__main__':
     app.run_server(debug=False, host="0.0.0.0", port=8050)
-    app.run(debug=True, use_reloader=False)
