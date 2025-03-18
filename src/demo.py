@@ -7,6 +7,10 @@ from vega_datasets import data as vega_data
 import webbrowser
 import plotly.express as px
 import dash.dash_table as dt
+import warnings
+from dash import State, callback_context
+
+warnings.simplefilter(action='ignore', category=FutureWarning)
 
 
 # =================================================
@@ -240,7 +244,8 @@ state_options = [{'label': 'Select/Unselect All', 'value': 'ALL'}] + [{'label': 
 canine_filter = html.Div([
     html.Label("Select Officer Type:", style={"font-weight": "bold", "margin-right": "10px"}),
     dbc.ButtonGroup([
-        dbc.Button("Police", id="police-button", color="primary", outline=False, n_clicks=1),
+        dbc.Button("All", id="all-button", color="primary", outline=False, n_clicks=1),
+        dbc.Button("Human", id="human-button", color="primary", outline=False, n_clicks=1),
         dbc.Button("Canine", id="canine-button", color="primary", outline=False, n_clicks=1),
     ])
 ], style={"text-align": "right", "margin-bottom": "10px"})
@@ -359,6 +364,20 @@ app.layout = dbc.Container([
 # =================================================
 from dash.exceptions import PreventUpdate
 
+# def update_officer_type(all_clicks, human_clicks, canine_clicks):
+#     all_active = all_clicks % 2 == 1
+#     human_active = human_clicks % 2 == 1
+#     canine_active = canine_clicks % 2 == 1
+
+#     if all_active:
+#         return "primary", "secondary", "secondary"
+#     elif human_active:
+#         return "secondary", "primary", "secondary"
+#     elif canine_active:
+#         return "secondary", "secondary", "primary"
+#     else:
+#         return "secondary", "secondary", "secondary"
+
 @app.callback(
     Output('cause-filter', 'value'),
     Input('cause-filter', 'value'),
@@ -375,6 +394,7 @@ def update_cause_filter(selected_values):
             return []
 
     return selected_values
+
 
 
 @app.callback(
@@ -395,6 +415,7 @@ def update_state_filter(selected_values):
     return selected_values
 
 
+
 @app.callback(
     [
         Output('bar-chart', 'srcDoc'),
@@ -406,7 +427,8 @@ def update_state_filter(selected_values):
         Output('deaths-last-year', 'children'),
         Output('deaths-last-5', 'children'),
         Output('deaths-last-10', 'children'),
-        Output("police-button", "color"),
+        Output("all-button", "color"),
+        Output("human-button", "color"),
         Output("canine-button", "color"),
         Output("recent-officer-table", "children")
     ],
@@ -414,13 +436,21 @@ def update_state_filter(selected_values):
         Input('year-filter', 'value'),
         Input('cause-filter', 'value'),
         Input('state-filter', 'value'),
-        Input('police-button', 'n_clicks'),
-        Input('canine-button', 'n_clicks')
+        Input('all-button', 'n_clicks'),
+        Input('human-button', 'n_clicks'),
+        Input('canine-button', 'n_clicks'),
+    ],
+    [
+        State("all-button", "color"),
+        State("human-button", "color"),
+        State("canine-button", "color"),
     ]
 )
-def render_dashboard(year_filter, cause_filter, state_filter, police_clicks, canine_clicks):
-    police_active = police_clicks % 2 == 1
-    canine_active = canine_clicks % 2 == 1
+
+def render_dashboard(year_filter, cause_filter, state_filter, all_clicks, human_clicks, canine_clicks, all_color, human_color, canine_color):
+    all_clicks = all_clicks or 0
+    human_clicks = human_clicks or 0
+    canine_clicks = canine_clicks or 0
 
     filtered_data = data.copy()
 
@@ -430,21 +460,46 @@ def render_dashboard(year_filter, cause_filter, state_filter, police_clicks, can
         (filtered_data['year'] <= end_year)
     ]
 
-    if 'ALL' not in cause_filter:
-        filtered_data = filtered_data[filtered_data['cause_short'].isin(cause_filter)]
+    # If no causes are selected, return an empty dataset
+    if not cause_filter or len(cause_filter) == 0:
+        filtered_data = pd.DataFrame(columns=data.columns)
+    else:
+        filtered_data = filtered_data[filtered_data["cause_short"].isin(cause_filter)]
 
-    if 'ALL' not in state_filter:
-        filtered_data = filtered_data[filtered_data['state'].isin(state_filter)]
+    # If no states are selected, return an empty dataset
+    if not state_filter or len(state_filter) == 0:
+        filtered_data = pd.DataFrame(columns=data.columns)
+    else:
+        filtered_data = filtered_data[filtered_data["state"].isin(state_filter)]
 
-    if police_active and not canine_active:
-        filtered_data = filtered_data[filtered_data['canine'] == False]
-    elif canine_active and not police_active:
-        filtered_data = filtered_data[filtered_data['canine'] == True]
-    elif not police_active and not canine_active:
-        return "", "", "", "", "0", "0", "0", "0", "0", "secondary", "secondary", ""
+
+
+    # Get the ID of the last clicked button
+    ctx = callback_context
+    if not ctx.triggered:
+        last_clicked = "all-button"  # Default selection is All
+    else:
+        last_clicked = ctx.triggered[0]["prop_id"].split(".")[0]  # Extract button ID
+
+    # Logic for correct selection:
+    if last_clicked == "all-button":
+        all_active, human_active, canine_active = True, True, True  # Enable all
+    elif last_clicked == "human-button":
+        all_active, human_active, canine_active = False, True, False  # Only Human
+    elif last_clicked == "canine-button":
+        all_active, human_active, canine_active = False, False, True  # Only Canine
+    else:
+        all_active, human_active, canine_active = True, True, True  # Default: All on
+
+    # Apply officer type filter
+    if not all_active:  
+        if human_active:
+            filtered_data = filtered_data[filtered_data["canine"] == False]  # Only human officers
+        elif canine_active:
+            filtered_data = filtered_data[filtered_data["canine"] == True]  # Only canine officers
 
     if filtered_data.empty:
-        return "", "", "", "", "0", "0", "0", "0", "0", "secondary", "secondary", ""
+        return "", "", "", "", "0", "0", "0", "0", "0", "secondary", "secondary", "secondary", ""
 
     # Compute summary stats using the latest year in the filtered dataset
     total_deaths, avg_per_year, deaths_last_year, deaths_last_5, deaths_last_10 = compute_summary_stats(filtered_data)
@@ -493,15 +548,16 @@ def render_dashboard(year_filter, cause_filter, state_filter, police_clicks, can
     time_series_html = time_series_obj.to_html() if time_series_obj else ""
     us_map_html = us_map_obj.to_html() if us_map_obj else ""
 
-    police_color = "primary" if police_active else "secondary"
+    # Ensure the button colors reflect the selection
+    all_color = "primary" if all_active else "secondary"
+    human_color = "primary" if human_active else "secondary"
     canine_color = "primary" if canine_active else "secondary"
 
     return (
         bar_chart_html, bar_chart2_html, time_series_html, us_map_html,
         f"{total_deaths:,}", f"{avg_per_year:,.2f}", f"{deaths_last_year:,}", 
-        f"{deaths_last_5:,}", f"{deaths_last_10:,}", police_color, canine_color, recent_officer_table
+        f"{deaths_last_5:,}", f"{deaths_last_10:,}", all_color, human_color, canine_color, recent_officer_table
     )
-
 
 def update_year_display(year_range):
     return f"Selected Years: {year_range[0]} - {year_range[1]}"
