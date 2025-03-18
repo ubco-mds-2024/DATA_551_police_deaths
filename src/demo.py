@@ -119,7 +119,7 @@ def create_time_series(data, x_col, y_col, title):
                 alt.Tooltip(y_col, title="Deaths", format=",")
             ]
         )
-        .properties(title=title, width=600, height=300)  # Reduced size
+        .properties(title=title, width=700, height=300)
     )
     return chart
 
@@ -270,6 +270,51 @@ sidebar = html.Div([
     create_multiselect_dropdown('state-filter', state_options),
 ])
 
+footer_section = html.Div([
+    # About This Dashboard (Collapsible Section)
+    dbc.Button(
+        "About This Dashboard", id="about-dashboard-btn", color="link", n_clicks=0,
+        style={"font-size": "16px", "text-decoration": "underline"}
+    ),
+    dbc.Collapse(
+        html.P(
+            "This dashboard is designed to present objective data on police officer fatalities "
+            "with the utmost respect for those who have served. By visualizing historical trends, "
+            "it aims to honor fallen officers while fostering informed discussions on public service safety. "
+            "Our goal is to provide a fact-based perspective that helps researchers, policymakers, and educators "
+            "understand the risks faced by law enforcement officers and explore ways to improve officer safety.",
+            style={"font-size": "14px"}
+        ),
+        id="about-dashboard-collapse",
+        is_open=False,
+    ),
+
+    # About the Data (Collapsible Section)
+    dbc.Button(
+        "About the Data", id="about-data-btn", color="link", n_clicks=0,
+        style={"font-size": "16px", "margin-top": "10px", "text-decoration": "underline"}
+    ),
+    dbc.Collapse(
+        html.Div([
+            html.P(
+                "The dataset contains approximately 22,800 records of police fatalities, sourced from the "
+                "Officer Down Memorial Page (ODMP) and publicly available via the FiveThirtyEight GitHub repository. "
+                "It includes details such as officer names, departments, causes of death, and locations. "
+                "The data also distinguishes between human officers and police canines (K9s) for comparative analysis.",
+                style={"font-size": "14px"}
+            ),
+            html.A(
+                "View the dataset on FiveThirtyEight’s GitHub repository",
+                href="https://github.com/fivethirtyeight/data",
+                target="_blank",
+                style={"font-size": "14px", "color": "blue", "text-decoration": "underline"}
+            )
+        ]),
+        id="about-data-collapse",
+        is_open=False,
+    )
+], style={"text-align": "left", "padding": "10px"})
+
 # =================================================
 # 9. Summary stats area
 # =================================================
@@ -279,8 +324,8 @@ summary_section = html.Div(id='summary-stats')
 # 10. Main layout
 # =================================================
 # Add the button group back in the layout
-app.layout = dbc.Container([
 
+app.layout = dbc.Container([
     dcc.Markdown("""
         <style>
             .card { height: 100%; }
@@ -288,23 +333,31 @@ app.layout = dbc.Container([
         </style>
     """, dangerously_allow_html=True),
 
+    # Title and Buttons at the Top
     dbc.Row([
         dbc.Col(html.H1("Police Officer Deaths Dashboard"), width=9),
         dbc.Col(canine_filter, width=3, style={"text-align": "right"})
     ], align="center", className="mb-3"),
 
+    # Main Layout: Sidebar (Filters + Footer) on Left, Charts on Right
     dbc.Row([
-        dbc.Col(sidebar, width=2, style={"border-right": "1px solid #ccc", "padding-right": "12px"}),
-
+        # Left Sidebar: Filters + Footer
         dbc.Col([
-            # Summary statistics row
+            sidebar,  # Existing filters
+            html.Hr(),  # Separator line
+            footer_section  # Footer Section (Collapsible Buttons)
+        ], width=2, style={"border-right": "1px solid #ccc", "padding-right": "12px"}),
+
+        # Right Side: Stats + Charts
+        dbc.Col([
+            # Summary Statistics Row
             dbc.Row([
                 dbc.Col(dbc.Card([
                     dbc.CardBody([
                         html.H5("Total Deaths", className="card-title text-center"),
                         html.P(id="total-deaths", className="card-text text-center")
                     ])
-                ], className="h-100"), width={"xs": 12, "sm": 6, "md": 3, "lg": 2}),  # Dynamic size
+                ], className="h-100"), width={"xs": 12, "sm": 6, "md": 3, "lg": 2}),
 
                 dbc.Col(dbc.Card([
                     dbc.CardBody([
@@ -335,25 +388,24 @@ app.layout = dbc.Container([
                 ], className="h-100"), width={"xs": 12, "sm": 6, "md": 3, "lg": 2})
             ], className="mb-3 align-items-stretch"),
 
-
-            # Charts row
+            # Charts Row
             dbc.Row([
-                # Left: Time series & Bar Charts
+                # Left Side: Time Series & Bar Charts
                 dbc.Col([
-                    html.Iframe(id='time-series', style={'width': '100%', 'height': '400px'}, width=12),
+                    html.Iframe(id='time-series', style={'width': '100%', 'height': '400px'}),
                     dbc.Row([
-                        dbc.Col(html.Iframe(id='bar-chart', style={'width': '100%', 'height': '400px'}), width=5),
-                        dbc.Col(html.Iframe(id='bar-chart2', style={'width': '100%', 'height': '400px'}), width=7)
+                        dbc.Col(html.Iframe(id='bar-chart', style={'width': '100%', 'height': '400px'}), width=6),
+                        dbc.Col(html.Iframe(id='bar-chart2', style={'width': '100%', 'height': '400px'}), width=6)
                     ], className="mt-3")
                 ], width=7),
 
-                # Right: US Map & Officer Table
+                # Right Side: US Map & Officer Table
                 dbc.Col([
                     html.Iframe(id='us-map', style={'width': '100%', 'height': '450px'}),
                     html.Div(id="recent-officer-section")
                 ], width=5)
             ], className="mt-3")
-        ], width=9)
+        ], width=10)  # Main content should take up most of the space
     ], align="start", className="mt-2", style={"padding-bottom": "15px"})
 ], fluid=True)
 
@@ -412,7 +464,25 @@ def update_state_filter(selected_values):
 
     return selected_values
 
+@app.callback(
+    Output("about-dashboard-collapse", "is_open"),
+    Input("about-dashboard-btn", "n_clicks"),
+    State("about-dashboard-collapse", "is_open")
+)
+def toggle_about_dashboard(n_clicks, is_open):
+    if n_clicks % 2 == 1:
+        return not is_open
+    return is_open
 
+@app.callback(
+    Output("about-data-collapse", "is_open"),
+    Input("about-data-btn", "n_clicks"),
+    State("about-data-collapse", "is_open")
+)
+def toggle_about_data(n_clicks, is_open):
+    if n_clicks % 2 == 1:
+        return not is_open
+    return is_open
 
 @app.callback(
     [
