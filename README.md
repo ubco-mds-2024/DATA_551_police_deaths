@@ -13,7 +13,8 @@ Once executed, the dashboard will automatically launch in your **web browser**, 
 # DATA_551_police_deaths  
 
 ## **Dashboard Preview**  
-![image](https://github.com/user-attachments/assets/0df86edd-87fd-4f5e-8b3e-e5ce3225b6df)  
+![dashboard](https://github.com/user-attachments/assets/5cbb71b1-d09f-46fd-a5f2-82e330509441)
+
 
 ---
 
