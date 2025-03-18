@@ -10,11 +10,10 @@ python demo.py
 ```
 Once executed, the dashboard will automatically launch in your **web browser**, providing an interactive interface for exploring the dataset.
 
-# DATA_551_police_deaths  
+---
 
 ## **Dashboard Preview**  
 ![dashboard](https://github.com/user-attachments/assets/5cbb71b1-d09f-46fd-a5f2-82e330509441)
-
 
 ---
 ## **Dashboard Features & Visualizations**
