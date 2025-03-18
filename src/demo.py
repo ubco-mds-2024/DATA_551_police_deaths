@@ -6,6 +6,12 @@ import altair as alt
 from vega_datasets import data as vega_data
 import webbrowser
 import plotly.express as px
+import dash.dash_table as dt
+import warnings
+from dash import State, callback_context
+
+warnings.simplefilter(action='ignore', category=FutureWarning)
+
 
 # =================================================
 # 1. Load the CSV data
@@ -52,42 +58,51 @@ data['fips'] = data['state'].map(state_abbrev_to_fips)
 # 6. Summary statistic function
 # =================================================
 def compute_summary_stats(filtered_data):
+    """Computes total deaths, average per year, and deaths in recent time periods."""
+    if filtered_data.empty:
+        return 0, 0, 0, 0, 0
+
     total_deaths = len(filtered_data)
     year_min = filtered_data['year'].min()
     year_max = filtered_data['year'].max()
-    if pd.isna(year_min) or pd.isna(year_max):
-        return 0, 0, 0
 
-    year_span = year_max - year_min + 1
-    avg_per_year = total_deaths / year_span if year_span > 0 else 0
+    # If the dataset contains only one year, avoid division by zero
+    year_span = max(1, year_max - year_min + 1)
+    avg_per_year = total_deaths / year_span
 
-    first_year_count = filtered_data[filtered_data['year'] == year_min].shape[0]
-    last_year_count = filtered_data[filtered_data['year'] == year_max].shape[0]
-    year_change = ((last_year_count - first_year_count) / first_year_count * 100) if first_year_count > 0 else 0
+    # Dynamically determine the latest year from the filtered data
+    current_year = year_max
 
-    return total_deaths, avg_per_year, year_change
+    # Calculate deaths within specific periods based on available data
+    deaths_last_year = filtered_data[filtered_data['year'] == (current_year - 1)].shape[0] if current_year - 1 >= year_min else 0
+    deaths_last_5_years = filtered_data[filtered_data['year'] >= max(year_min, current_year - 5)].shape[0]
+    deaths_last_10_years = filtered_data[filtered_data['year'] >= max(year_min, current_year - 10)].shape[0]
 
+    return total_deaths, avg_per_year, deaths_last_year, deaths_last_5_years, deaths_last_10_years
 
 # =================================================
-# 7. Chart-building helper functions
+# 7. Chart-building and table-building helper functions
 # =================================================
-def create_bar_chart(data, x_col, y_col, title):
-    """Builds a bar chart."""
+def create_bar_chart(data, x_col, y_col, title, y_axis_label="Category"):
+    """Builds a bar chart with a custom Y-axis label and comma-formatted tooltips."""
     if data.empty:
         return None
+
     chart = (
         alt.Chart(data)
         .mark_bar()
         .encode(
-            x=alt.X(x_col),
-            y=alt.Y(y_col, sort='-x'),
+            x=alt.X(x_col, title="Count"),
+            y=alt.Y(y_col, title=y_axis_label, sort='-x'),  # Custom Y-axis label
             color=alt.Color(y_col, legend=None),
-            tooltip=[x_col, y_col]
+            tooltip=[
+                alt.Tooltip(x_col, title="Count", format=","),
+                alt.Tooltip(y_col, title=y_axis_label)
+            ]
         )
-        .properties(title=title, width=150, height=300)
+        .properties(title=title, width=230, height=300)
     )
     return chart
-
 
 def create_time_series(data, x_col, y_col, title):
     """Builds a line chart (time series)."""
@@ -99,18 +114,36 @@ def create_time_series(data, x_col, y_col, title):
         .encode(
             x=alt.X(x_col, title='Year', axis=alt.Axis(format='d', tickMinStep=5)),
             y=alt.Y(y_col, title='Number of Deaths'),
-            tooltip=[x_col, y_col]
+            tooltip=[
+                alt.Tooltip(x_col, title="Year"),
+                alt.Tooltip(y_col, title="Deaths", format=",")
+            ]
         )
-        .properties(title=title, width=600, height=300)  # Reduced size
+        .properties(title=title, width=800, height=300)
     )
     return chart
 
 
 def create_us_heatmap(filtered_data):
-    # Count occurrences of each state
+    """Creates a U.S. choropleth map where non-selected states remain visible in gray."""
+    # Count occurrences of each state (for coloring)
     state_counts = filtered_data["state"].value_counts().reset_index()
-    state_counts.columns = ["state", "count"]  # rename column
+    state_counts.columns = ["state", "count"]
     state_counts["state"] = state_counts["state"].str.strip()
+
+    # Create a DataFrame with all states, ensuring unselected ones are visible
+    all_states = pd.DataFrame({"state": list(state_abbrev_to_fips.keys())})
+    state_counts = all_states.merge(state_counts, on="state", how="left").fillna(0)
+
+    # Define the original red color scale
+    color_scale = [
+        (0, "lightgray"),  # Unselected states in gray
+        (0.2, "#fee5d9"),  # Light red
+        (0.4, "#fcae91"),  # Soft red
+        (0.6, "#fb6a4a"),  # Medium red
+        (0.8, "#de2d26"),  # Darker red
+        (1, "#a50f15")  # Deep red for high values
+    ]
 
     # Create the choropleth map
     fig = px.choropleth(
@@ -118,11 +151,77 @@ def create_us_heatmap(filtered_data):
         locations="state",
         locationmode="USA-states",
         color="count",
-        color_continuous_scale="reds",
+        color_continuous_scale=color_scale,  # Use the improved red gradient
         scope="usa",
         title="Mapping Fallen Officers: U.S. Deaths by State",
+        hover_data={"state": True, "count": True},
     )
+
+    # Set hover template explicitly
+    fig.update_traces(
+        hovertemplate="<b>%{location}</b><br>Deaths: %{z}<extra></extra>",
+        marker=dict(line=dict(color='black', width=0.5))  # Add borders to states
+    )
+
+    # Optimize layout: Disable zooming and panning
+    fig.update_layout(
+        geo=dict(
+            showframe=False,
+            showcoastlines=False,
+            showcountries=False,
+            showland=True,
+            landcolor="white",
+            projection=dict(
+                type="albers usa",
+                scale=1.05 if len(state_counts) > 10 else 1.2  # Adjust zoom based on selected states
+            ),
+            center={"lat": 38, "lon": -96}
+        ),
+        dragmode=False,
+        uirevision="fixed",
+        margin={"r": 10, "t": 10, "l": 10, "b": 10},
+        height=400,
+        title=dict(
+            text="Mapping Fallen Officers: U.S. Deaths by State",
+            font=dict(size=16),
+            x=0.5,
+            xanchor="center",
+            y=0.95,
+            yanchor="top"
+        )
+    )
+
     return fig
+
+def create_recent_officer_table(filtered_data):
+    """Creates a table showing the 5 most recently fallen officers."""
+    if filtered_data.empty:
+        return dt.DataTable(
+            columns=[{"name": col, "id": col} for col in ["Person", "Date", "Dept Name", "State", "Cause"]],
+            data=[],
+            style_table={'width': '100%', 'overflowX': 'auto'},
+            style_cell={'textAlign': 'left'}
+        )
+
+    # Get the 5 most recent fallen officers (latest date)
+    recent_officers = filtered_data.sort_values(by="date", ascending=False).head(5)
+
+    # Select columns and rename them for display
+    recent_officers = recent_officers[["person", "date", "dept_name", "state", "cause_short"]].rename(
+        columns={"person": "Person", "date": "Date", "dept_name": "Dept Name", "state": "State", "cause_short": "Cause"}
+    )
+
+    # Convert DataFrame to Dash Table
+    table = dt.DataTable(
+        columns=[{"name": col, "id": col} for col in recent_officers.columns],
+        data=recent_officers.to_dict("records"),
+        style_table={'width': '100%', 'overflowX': 'auto'},
+        style_cell={'textAlign': 'left', 'padding': '5px'},
+        style_header={'fontWeight': 'bold', 'textAlign': 'center'},
+        style_as_list_view=True
+    )
+
+    return table
 
 
 # =================================================
@@ -139,16 +238,14 @@ def create_multiselect_dropdown(id, options):
         )
     ], style={"max-height": "200px", "overflow-y": "auto", "border": "1px solid #ccc", "padding": "5px"})
 
-
-cause_options = [{'label': 'Select/Unselect All', 'value': 'ALL'}] + [{'label': c, 'value': c} for c in
-                                                                      sorted(data['cause_short'].unique())]
-state_options = [{'label': 'Select/Unselect All', 'value': 'ALL'}] + [{'label': s, 'value': s} for s in
-                                                                      sorted(data['state'].unique())]
+cause_options = [{'label': 'Select/Unselect All', 'value': 'ALL'}] + [{'label': c, 'value': c} for c in sorted(data['cause_short'].unique())]
+state_options = [{'label': 'Select/Unselect All', 'value': 'ALL'}] + [{'label': s, 'value': s} for s in sorted(data['state'].unique())]
 
 canine_filter = html.Div([
     html.Label("Select Officer Type:", style={"font-weight": "bold", "margin-right": "10px"}),
     dbc.ButtonGroup([
-        dbc.Button("Police", id="police-button", color="primary", outline=False, n_clicks=1),
+        dbc.Button("All", id="all-button", color="primary", outline=False, n_clicks=1),
+        dbc.Button("Human", id="human-button", color="primary", outline=False, n_clicks=1),
         dbc.Button("Canine", id="canine-button", color="primary", outline=False, n_clicks=1),
     ])
 ], style={"text-align": "right", "margin-bottom": "10px"})
@@ -173,6 +270,62 @@ sidebar = html.Div([
     create_multiselect_dropdown('state-filter', state_options),
 ])
 
+# Section: About Fallen Officers
+about_fallen_officers = html.Div([
+    dbc.Button(
+        "About Fallen Officers", id="about-officers-toggle", color="link", className="mb-2 fw-bold"
+    ),
+    dbc.Collapse(
+        dbc.Card(dbc.CardBody([
+            html.P("The term 'fallen officers' refers to police officers and K9s who have lost their lives while serving their communities."),
+            html.P("These deaths occur under various circumstances, including violent confrontations, vehicular incidents, medical emergencies, and ambush attacks."),
+            html.P([
+                "According to the ", html.Strong("Officer Down Memorial Page (ODMP)"),
+                ", the number of fallen officers has fluctuated over time due to shifts in crime rates, public safety policies, and broader social factors."
+            ]),
+            html.P("While every loss is tragic, understanding these trends helps in shaping better policies and safety measures for law enforcement personnel."),
+            html.Blockquote(
+                html.P("When a police officer is killed, it's not an agency that loses an officer, it's an entire nation."),
+                className="blockquote text-muted"
+            ),
+            html.Footer("— Chris Cosgriff, ODMP Founder", className="blockquote-footer")
+        ])),
+        id="about-officers-collapse", is_open=False
+    )
+])
+
+# Section: About the Data
+about_data = html.Div([
+    dbc.Button(
+        "About the Data", id="about-data-toggle", color="link", className="mb-2 fw-bold"
+    ),
+    dbc.Collapse(
+        dbc.Card(dbc.CardBody([
+            html.P([
+                "Our dataset consists of approximately ", html.Strong("22,800 records"),
+                " documenting police deaths in U.S. history from ", html.Strong("1791 to 2016"), "."
+            ]),
+            html.P([
+                "The data is sourced from the ", html.Strong("Officer Down Memorial Page (ODMP)"),
+                ", a project started in 1996 by a college student who later became a police officer."
+            ]),
+            html.P([
+                "This dataset is publicly available on the ", 
+                html.A("FiveThirtyEight GitHub repository", href="https://github.com/fivethirtyeight/data", target="_blank"),
+                " and was used in their analysis, ", html.Em("“The Dallas Shooting Was Among The Deadliest For Police In U.S. History.”")
+            ]),
+            html.P("The dataset captures details about fallen officers, including:"),
+            html.Ul([
+                html.Li(html.Strong("Officer Information:"), " Name, department, and End of Watch (EOW) date."),
+                html.Li(html.Strong("Circumstances:"), " Cause of death (detailed and categorized)."),
+                html.Li(html.Strong("Location:"), " State and year of incident."),
+                html.Li(html.Strong("Canine Officers:"), " A flag to identify cases involving police dogs (K9s).")
+            ])
+        ])),
+        id="about-data-collapse", is_open=False
+    )
+])
+
 # =================================================
 # 9. Summary stats area
 # =================================================
@@ -182,41 +335,96 @@ summary_section = html.Div(id='summary-stats')
 # 10. Main layout
 # =================================================
 # Add the button group back in the layout
+
 app.layout = dbc.Container([
+    dcc.Markdown("""
+        <style>
+            .card { height: 100%; }
+            .card-body { display: flex; flex-direction: column; justify-content: center; align-items: center; }
+        </style>
+    """, dangerously_allow_html=True),
+
+    # Title and Buttons at the Top
     dbc.Row([
         dbc.Col(html.H1("Police Officer Deaths Dashboard"), width=9),
         dbc.Col(canine_filter, width=3, style={"text-align": "right"})
     ], align="center", className="mb-3"),
 
+    # Main Layout: Sidebar (Filters + Footer) on Left, Charts on Right
     dbc.Row([
-        dbc.Col(sidebar, width=2, style={"border-right": "1px solid #ccc", "padding-right": "12px"}),
-        # Slightly reduced sidebar width
-
+        # Left Sidebar: Filters + Footer
         dbc.Col([
-            # Summary statistics row
-            dbc.Row([
-                dbc.Col(dbc.Card([dbc.CardBody([html.H5("Total Deaths"), html.P(id="total-deaths")])]), width=4),
-                dbc.Col(dbc.Card([dbc.CardBody([html.H5("Average Deaths per Year"), html.P(id="avg-deaths")])]),
-                        width=4),
-                dbc.Col(dbc.Card([dbc.CardBody([html.H5("Annual Growth Rate"), html.P(id="growth-rate")])]), width=4)
-            ], className="mb-3"),
+            sidebar,  # Existing filters
+            html.Hr(),  # Separator line
+            about_fallen_officers,
+            html.Hr(),  # Separator line
+            about_data    # Footer Section (Collapsible Buttons)
+        ], width=2, style={"border-right": "1px solid #ccc", "padding-right": "12px"}),
 
-            # Charts row
+        # Right Side: Stats + Charts
+        dbc.Col([
+            # Summary Statistics Row
             dbc.Row([
+                dbc.Col(dbc.Card([
+                    dbc.CardBody([
+                        html.H2(id="total-deaths", className="text-center fw-bold"),  
+                        html.P([html.Strong("TOTAL DEATHS"), html.Br(), "Selected Period"],  
+                            className="text-center text-muted mb-0")
+                    ], className="d-flex flex-column justify-content-center align-items-center")
+                ], className="h-100 shadow-sm"), width={"xs": 12, "sm": 6, "md": 3, "lg": 2}),  
+
+                dbc.Col(dbc.Card([
+                    dbc.CardBody([
+                        html.H2(id="avg-deaths", className="text-center fw-bold"),
+                        html.P([html.Strong("AVG. DEATHS"), html.Br(), "Per Year", html.Br(), "Selected Period"],  
+                            className="text-center text-muted mb-0")
+                    ], className="d-flex flex-column justify-content-center align-items-center")
+                ], className="h-100 shadow-sm"), width={"xs": 12, "sm": 6, "md": 3, "lg": 2}),
+
+                dbc.Col(dbc.Card([
+                    dbc.CardBody([
+                        html.H2(id="deaths-last-10", className="text-center fw-bold"),
+                        html.P(["Deaths", html.Br(), html.Strong("LAST 10 YEARS"), html.Br(), "of Selection"],  
+                            className="text-center text-muted mb-0")
+                    ], className="d-flex flex-column justify-content-center align-items-center")
+                ], className="h-100 shadow-sm"), width={"xs": 12, "sm": 6, "md": 3, "lg": 2}),
+
+                dbc.Col(dbc.Card([
+                    dbc.CardBody([
+                        html.H2(id="deaths-last-5", className="text-center fw-bold"),
+                        html.P(["Deaths", html.Br(), html.Strong("LAST 5 YEARS"), html.Br(), "of Selection"],  
+                            className="text-center text-muted mb-0")
+                    ], className="d-flex flex-column justify-content-center align-items-center")
+                ], className="h-100 shadow-sm"), width={"xs": 12, "sm": 6, "md": 3, "lg": 2}),
+
+                dbc.Col(dbc.Card([
+                    dbc.CardBody([
+                        html.H2(id="deaths-last-year", className="text-center fw-bold"),
+                        html.P(["Deaths", html.Br(), html.Strong("LAST YEAR"), html.Br(), "of Selection"],  
+                            className="text-center text-muted mb-0")
+                    ], className="d-flex flex-column justify-content-center align-items-center")
+                ], className="h-100 shadow-sm"), width={"xs": 12, "sm": 6, "md": 3, "lg": 2})
+            ], className="mb-3 align-items-stretch"),
+
+            # Charts Row
+            dbc.Row([
+                # Left Side: Time Series & Bar Charts
                 dbc.Col([
-                    html.Iframe(id='time-series', style={'width': '100%', 'height': '400px'}, width=12),
-                    # Adjusted height
+                    html.Iframe(id='time-series', style={'width': '100%', 'height': '400px'}),
                     dbc.Row([
-                        dbc.Col(html.Iframe(id='bar-chart', style={'width': '100%', 'height': '400px'}), width=5),
-                        dbc.Col(html.Iframe(id='bar-chart2', style={'width': '100%', 'height': '400px'}), width=7)
+                        dbc.Col(html.Iframe(id='bar-chart', style={'width': '100%', 'height': '400px'}), width=6),
+                        dbc.Col(html.Iframe(id='bar-chart2', style={'width': '100%', 'height': '400px'}), width=6)
                     ], className="mt-3")
-                ], width=7),  # Expanded space for charts
+                ], width=7),
 
-                dbc.Col(html.Iframe(id='us-map', style={'width': '100%', 'height': '800px'}), width=5)
-                # Slightly reduced map height
+                # Right Side: US Map & Officer Table
+                dbc.Col([
+                    html.Iframe(id='us-map', style={'width': '100%', 'height': '450px'}),
+                    html.Div(id="recent-officer-section")
+                ], width=5)
             ], className="mt-3")
-        ], width=9)  # Increased width for main content
-    ], align="start", className="mt-2", style={"padding-bottom": "15px"})  # Added spacing
+        ], width=10)  # Main content should take up most of the space
+    ], align="start", className="mt-2", style={"padding-bottom": "15px"})
 ], fluid=True)
 
 # =================================================
@@ -224,6 +432,19 @@ app.layout = dbc.Container([
 # =================================================
 from dash.exceptions import PreventUpdate
 
+# def update_officer_type(all_clicks, human_clicks, canine_clicks):
+#     all_active = all_clicks % 2 == 1
+#     human_active = human_clicks % 2 == 1
+#     canine_active = canine_clicks % 2 == 1
+
+#     if all_active:
+#         return "primary", "secondary", "secondary"
+#     elif human_active:
+#         return "secondary", "primary", "secondary"
+#     elif canine_active:
+#         return "secondary", "secondary", "primary"
+#     else:
+#         return "secondary", "secondary", "secondary"
 
 @app.callback(
     Output('cause-filter', 'value'),
@@ -243,6 +464,7 @@ def update_cause_filter(selected_values):
     return selected_values
 
 
+
 @app.callback(
     Output('state-filter', 'value'),
     Input('state-filter', 'value'),
@@ -260,6 +482,25 @@ def update_state_filter(selected_values):
 
     return selected_values
 
+@app.callback(
+    Output("about-officers-collapse", "is_open"),
+    Input("about-officers-toggle", "n_clicks"),
+    State("about-officers-collapse", "is_open")
+)
+def toggle_about_officers(n_clicks, is_open):
+    if n_clicks:
+        return not is_open
+    return is_open
+
+@app.callback(
+    Output("about-data-collapse", "is_open"),
+    Input("about-data-toggle", "n_clicks"),
+    State("about-data-collapse", "is_open")
+)
+def toggle_about_data(n_clicks, is_open):
+    if n_clicks:
+        return not is_open
+    return is_open
 
 @app.callback(
     [
@@ -269,48 +510,85 @@ def update_state_filter(selected_values):
         Output('us-map', 'srcDoc'),
         Output('total-deaths', 'children'),
         Output('avg-deaths', 'children'),
-        Output('growth-rate', 'children'),
-        Output("police-button", "color"),
-        Output("canine-button", "color")
+        Output('deaths-last-year', 'children'),
+        Output('deaths-last-5', 'children'),
+        Output('deaths-last-10', 'children'),
+        Output("all-button", "color"),
+        Output("human-button", "color"),
+        Output("canine-button", "color"),
+        Output("recent-officer-section", "children")
     ],
     [
         Input('year-filter', 'value'),
         Input('cause-filter', 'value'),
         Input('state-filter', 'value'),
-        Input('police-button', 'n_clicks'),
-        Input('canine-button', 'n_clicks')
+        Input('all-button', 'n_clicks'),
+        Input('human-button', 'n_clicks'),
+        Input('canine-button', 'n_clicks'),
+    ],
+    [
+        State("all-button", "color"),
+        State("human-button", "color"),
+        State("canine-button", "color"),
     ]
 )
-def render_dashboard(year_filter, cause_filter, state_filter, police_clicks, canine_clicks):
-    police_active = police_clicks % 2 == 1
-    canine_active = canine_clicks % 2 == 1
+
+def render_dashboard(year_filter, cause_filter, state_filter, all_clicks, human_clicks, canine_clicks, all_color, human_color, canine_color):
+    all_clicks = all_clicks or 0
+    human_clicks = human_clicks or 0
+    canine_clicks = canine_clicks or 0
 
     filtered_data = data.copy()
 
     start_year, end_year = year_filter
     filtered_data = filtered_data[
-        (filtered_data['year'] >= start_year) &
+        (filtered_data['year'] >= start_year) & 
         (filtered_data['year'] <= end_year)
-        ]
+    ]
 
-    if 'ALL' not in cause_filter:
-        filtered_data = filtered_data[filtered_data['cause_short'].isin(cause_filter)]
+    # If no causes are selected, return an empty dataset
+    if not cause_filter or len(cause_filter) == 0:
+        filtered_data = pd.DataFrame(columns=data.columns)
+    else:
+        filtered_data = filtered_data[filtered_data["cause_short"].isin(cause_filter)]
 
-    if 'ALL' not in state_filter:
-        filtered_data = filtered_data[filtered_data['state'].isin(state_filter)]
+    # If no states are selected, return an empty dataset
+    if not state_filter or len(state_filter) == 0:
+        filtered_data = pd.DataFrame(columns=data.columns)
+    else:
+        filtered_data = filtered_data[filtered_data["state"].isin(state_filter)]
 
-    if police_active and not canine_active:
-        filtered_data = filtered_data[filtered_data['canine'] == False]
-    elif canine_active and not police_active:
-        filtered_data = filtered_data[filtered_data['canine'] == True]
-    elif not police_active and not canine_active:
-        return "", "", "", "", "0", "0", "0", "secondary", "secondary"
+
+
+    # Get the ID of the last clicked button
+    ctx = callback_context
+    if not ctx.triggered:
+        last_clicked = "all-button"  # Default selection is All
+    else:
+        last_clicked = ctx.triggered[0]["prop_id"].split(".")[0]  # Extract button ID
+
+    # Logic for correct selection:
+    if last_clicked == "all-button":
+        all_active, human_active, canine_active = True, True, True  # Enable all
+    elif last_clicked == "human-button":
+        all_active, human_active, canine_active = False, True, False  # Only Human
+    elif last_clicked == "canine-button":
+        all_active, human_active, canine_active = False, False, True  # Only Canine
+    else:
+        all_active, human_active, canine_active = True, True, True  # Default: All on
+
+    # Apply officer type filter
+    if not all_active:  
+        if human_active:
+            filtered_data = filtered_data[filtered_data["canine"] == False]  # Only human officers
+        elif canine_active:
+            filtered_data = filtered_data[filtered_data["canine"] == True]  # Only canine officers
 
     if filtered_data.empty:
-        return "", "", "", "", "0", "0", "0", "secondary", "secondary"
+        return "", "", "", "", "0", "0", "0", "0", "0", "secondary", "secondary", "secondary", ""
 
-    # Compute summary stats
-    total_deaths, avg_per_year, year_change = compute_summary_stats(filtered_data)
+    # Compute summary stats using the latest year in the filtered dataset
+    total_deaths, avg_per_year, deaths_last_year, deaths_last_5, deaths_last_10 = compute_summary_stats(filtered_data)
 
     # Prepare data for charts
     cause_data = (
@@ -335,12 +613,20 @@ def render_dashboard(year_filter, cause_filter, state_filter, police_clicks, can
     )
 
     # Build charts
-    bar_chart_obj = create_bar_chart(cause_data.sort_values(by='Count', ascending=False).head(10), 'Count',
-                                     'cause_short', 'Top 10 death causes')
-    bar_chart_obj_2 = create_bar_chart(dept_data.sort_values(by='Count', ascending=False).head(10), 'Count', 'dept',
-                                       'Top 10 departments')
+    bar_chart_obj = create_bar_chart(
+        cause_data.sort_values(by='Count', ascending=False).head(10),
+        'Count', 'cause_short', 'Top 10 Death Causes', y_axis_label="Cause of Death"
+    )
+
+    bar_chart_obj_2 = create_bar_chart(
+        dept_data.sort_values(by='Count', ascending=False).head(10),
+        'Count', 'dept', 'Top 10 Departments', y_axis_label="Department"
+    )
     time_series_obj = create_time_series(time_series_data, 'year', 'Count', 'Deaths Over Time')
     us_map_obj = create_us_heatmap(filtered_data)
+
+    # Get the table of the most recent fallen officers
+    recent_officer_table = create_recent_officer_table(filtered_data)
 
     # Convert Altair charts to HTML
     bar_chart_html = bar_chart_obj.to_html() if bar_chart_obj else ""
@@ -348,12 +634,21 @@ def render_dashboard(year_filter, cause_filter, state_filter, police_clicks, can
     time_series_html = time_series_obj.to_html() if time_series_obj else ""
     us_map_html = us_map_obj.to_html() if us_map_obj else ""
 
-    police_color = "primary" if police_active else "secondary"
+    # Ensure the button colors reflect the selection
+    all_color = "primary" if all_active else "secondary"
+    human_color = "primary" if human_active else "secondary"
     canine_color = "primary" if canine_active else "secondary"
 
-    return bar_chart_html, bar_chart2_html, time_series_html, us_map_html, str(total_deaths), str(
-        round(avg_per_year, 2)), f"{round(year_change, 2)}%", police_color, canine_color
+    recent_officer_section = html.Div([
+    html.H5("Most Recently Fallen Officers (Filtered View)", style={"text-align": "center", "margin-top": "0px"}),
+    recent_officer_table
+    ]) if not filtered_data.empty else ""  # Hide title & table if empty
 
+    return (
+        bar_chart_html, bar_chart2_html, time_series_html, us_map_html,
+        f"{total_deaths:,}", f"{avg_per_year:,.2f}", f"{deaths_last_year:,}", 
+        f"{deaths_last_5:,}", f"{deaths_last_10:,}", all_color, human_color, canine_color, recent_officer_section
+    )
 
 def update_year_display(year_range):
     return f"Selected Years: {year_range[0]} - {year_range[1]}"
@@ -365,4 +660,4 @@ def update_year_display(year_range):
 if __name__ == '__main__':
     webbrowser.open("http://127.0.0.1:8050")
     # Disable the reloader to avoid opening the browser twice
-    app.run_server(debug=True, use_reloader=False)
+    app.run(debug=True, use_reloader=False)
