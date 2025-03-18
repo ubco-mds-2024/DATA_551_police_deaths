@@ -301,38 +301,43 @@ app.layout = dbc.Container([
             dbc.Row([
                 dbc.Col(dbc.Card([
                     dbc.CardBody([
-                        html.H5("Total Deaths", className="card-title text-center"),
-                        html.P(id="total-deaths", className="card-text text-center")
-                    ])
-                ], className="h-100"), width={"xs": 12, "sm": 6, "md": 3, "lg": 2}),  # Dynamic size
+                        html.H2(id="total-deaths", className="text-center fw-bold"),  
+                        html.P([html.Strong("TOTAL DEATHS"), html.Br(), "Selected Period"],  
+                            className="text-center text-muted mb-0")
+                    ], className="d-flex flex-column justify-content-center align-items-center")
+                ], className="h-100 shadow-sm"), width={"xs": 12, "sm": 6, "md": 3, "lg": 2}),  
 
                 dbc.Col(dbc.Card([
                     dbc.CardBody([
-                        html.H5("Average Deaths per Year", className="card-title text-center"),
-                        html.P(id="avg-deaths", className="card-text text-center")
-                    ])
-                ], className="h-100"), width={"xs": 12, "sm": 6, "md": 3, "lg": 2}),
+                        html.H2(id="avg-deaths", className="text-center fw-bold"),
+                        html.P([html.Strong("AVG. DEATHS"), html.Br(), "Per Year", html.Br(), "Selected Period"],  
+                            className="text-center text-muted mb-0")
+                    ], className="d-flex flex-column justify-content-center align-items-center")
+                ], className="h-100 shadow-sm"), width={"xs": 12, "sm": 6, "md": 3, "lg": 2}),
 
                 dbc.Col(dbc.Card([
                     dbc.CardBody([
-                        html.H5("Deaths in the Last 10 Years", className="card-title text-center"),
-                        html.P(id="deaths-last-10", className="card-text text-center")
-                    ])
-                ], className="h-100"), width={"xs": 12, "sm": 6, "md": 3, "lg": 2}),
+                        html.H2(id="deaths-last-10", className="text-center fw-bold"),
+                        html.P(["Deaths", html.Br(), html.Strong("LAST 10 YEARS"), html.Br(), "of Selection"],  
+                            className="text-center text-muted mb-0")
+                    ], className="d-flex flex-column justify-content-center align-items-center")
+                ], className="h-100 shadow-sm"), width={"xs": 12, "sm": 6, "md": 3, "lg": 2}),
 
                 dbc.Col(dbc.Card([
                     dbc.CardBody([
-                        html.H5("Deaths in the Last 5 Years", className="card-title text-center"),
-                        html.P(id="deaths-last-5", className="card-text text-center")
-                    ])
-                ], className="h-100"), width={"xs": 12, "sm": 6, "md": 3, "lg": 2}),
+                        html.H2(id="deaths-last-5", className="text-center fw-bold"),
+                        html.P(["Deaths", html.Br(), html.Strong("LAST 5 YEARS"), html.Br(), "of Selection"],  
+                            className="text-center text-muted mb-0")
+                    ], className="d-flex flex-column justify-content-center align-items-center")
+                ], className="h-100 shadow-sm"), width={"xs": 12, "sm": 6, "md": 3, "lg": 2}),
 
                 dbc.Col(dbc.Card([
                     dbc.CardBody([
-                        html.H5("Deaths in the Last Year", className="card-title text-center"),
-                        html.P(id="deaths-last-year", className="card-text text-center")
-                    ])
-                ], className="h-100"), width={"xs": 12, "sm": 6, "md": 3, "lg": 2})
+                        html.H2(id="deaths-last-year", className="text-center fw-bold"),
+                        html.P(["Deaths", html.Br(), html.Strong("LAST YEAR"), html.Br(), "of Selection"],  
+                            className="text-center text-muted mb-0")
+                    ], className="d-flex flex-column justify-content-center align-items-center")
+                ], className="h-100 shadow-sm"), width={"xs": 12, "sm": 6, "md": 3, "lg": 2})
             ], className="mb-3 align-items-stretch"),
 
 
