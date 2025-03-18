@@ -38,12 +38,12 @@ Once executed, the dashboard will automatically launch in your **web browser**, 
 - **Sortable by count** for deeper department-specific analysis.
 
 ### **5. Summary Statistics**
-Provides **key numerical insights** into fallen officers, dynamically updating based on user selection:
+Provides **key numerical insights** into fallen officers, dynamically updating based on the user-selected time range:
 - **Total Deaths**: Number of fallen officers in the selected period.
-- **Average Deaths Per Year**: Based on the filtered dataset.
-- **Deaths in Most Recent 10 Years of Selection**.
-- **Deaths in Most Recent 5 Years of Selection**.
-- **Deaths in Most Recent Year of Selection**.
+- **Average Deaths Per Year**: Computed based on the user-defined time range.
+- **Deaths in Last 10 Years of Selection**: Total deaths recorded in the most recent 10 years within the selected period.
+- **Deaths in Last 5 Years of Selection**: Total deaths recorded in the most recent 5 years within the selected period.
+- **Deaths in Last Year of Selection**: Total deaths recorded in the most recent year within the selected period.
 
 ### **6. Interactive Filtering Options**
 Users can **refine the dataset** using multiple filtering tools:
