@@ -30,8 +30,7 @@ alt.data_transformers.disable_max_rows()
 # =================================================
 # 3. Initialize Dash
 # =================================================
-app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
-app.title = "Police Officer Deaths Dashboard"
+app = dash.Dash(__name__, title="Police Officer Deaths Dashboard", external_stylesheets=[dbc.themes.BOOTSTRAP])
 
 # =================================================
 # 4. State Abbreviation -> FIPS Mapping
