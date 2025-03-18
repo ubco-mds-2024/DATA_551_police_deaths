@@ -267,19 +267,19 @@ app.layout = dbc.Container([
 # =================================================
 from dash.exceptions import PreventUpdate
 
-def update_officer_type(all_clicks, human_clicks, canine_clicks):
-    all_active = all_clicks % 2 == 1
-    human_active = human_clicks % 2 == 1
-    canine_active = canine_clicks % 2 == 1
+# def update_officer_type(all_clicks, human_clicks, canine_clicks):
+#     all_active = all_clicks % 2 == 1
+#     human_active = human_clicks % 2 == 1
+#     canine_active = canine_clicks % 2 == 1
 
-    if all_active:
-        return "primary", "secondary", "secondary"
-    elif human_active:
-        return "secondary", "primary", "secondary"
-    elif canine_active:
-        return "secondary", "secondary", "primary"
-    else:
-        return "secondary", "secondary", "secondary"
+#     if all_active:
+#         return "primary", "secondary", "secondary"
+#     elif human_active:
+#         return "secondary", "primary", "secondary"
+#     elif canine_active:
+#         return "secondary", "secondary", "primary"
+#     else:
+#         return "secondary", "secondary", "secondary"
 
 @app.callback(
     Output('cause-filter', 'value'),
@@ -299,6 +299,7 @@ def update_cause_filter(selected_values):
     return selected_values
 
 
+
 @app.callback(
     Output('state-filter', 'value'),
     Input('state-filter', 'value'),
@@ -315,6 +316,7 @@ def update_state_filter(selected_values):
             return []
 
     return selected_values
+
 
 
 @app.callback(
@@ -358,11 +360,19 @@ def render_dashboard(year_filter, cause_filter, state_filter, all_clicks, human_
         (filtered_data['year'] <= end_year)
         ]
 
-    if 'ALL' not in cause_filter:
-        filtered_data = filtered_data[filtered_data['cause_short'].isin(cause_filter)]
+    # If no causes are selected, return an empty dataset
+    if not cause_filter or len(cause_filter) == 0:
+        filtered_data = pd.DataFrame(columns=data.columns)
+    else:
+        filtered_data = filtered_data[filtered_data["cause_short"].isin(cause_filter)]
 
-    if 'ALL' not in state_filter:
-        filtered_data = filtered_data[filtered_data['state'].isin(state_filter)]
+    # If no states are selected, return an empty dataset
+    if not state_filter or len(state_filter) == 0:
+        filtered_data = pd.DataFrame(columns=data.columns)
+    else:
+        filtered_data = filtered_data[filtered_data["state"].isin(state_filter)]
+
+
 
     # Get the ID of the last clicked button
     ctx = callback_context
@@ -381,19 +391,17 @@ def render_dashboard(year_filter, cause_filter, state_filter, all_clicks, human_
     else:
         all_active, human_active, canine_active = True, True, True  # Default: All on
 
-    # Filter the data based on selection
-    if all_active:
-        filtered_data = data  # Show everything
-    elif human_active:
-        filtered_data = data[data['canine'] == False]  # Only human officers
-    elif canine_active:
-        filtered_data = data[data['canine'] == True]  # Only canine officers
-    else:
+    # Apply officer type filter
+    if not all_active:  
+        if human_active:
+            filtered_data = filtered_data[filtered_data["canine"] == False]  # Only human officers
+        elif canine_active:
+            filtered_data = filtered_data[filtered_data["canine"] == True]  # Only canine officers
+
+    if filtered_data.empty:
         return "", "", "", "", "0", "0", "0", "secondary", "secondary", "secondary"
 
 
-    if filtered_data.empty:
-        return "", "", "", "", "0", "0", "0", "secondary", "secondary"
 
     # Compute summary stats
     total_deaths, avg_per_year, year_change = compute_summary_stats(filtered_data)
