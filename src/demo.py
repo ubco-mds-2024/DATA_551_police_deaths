@@ -270,6 +270,62 @@ sidebar = html.Div([
     create_multiselect_dropdown('state-filter', state_options),
 ])
 
+# Section: About Fallen Officers
+about_fallen_officers = html.Div([
+    dbc.Button(
+        "About Fallen Officers", id="about-officers-toggle", color="link", className="mb-2 fw-bold"
+    ),
+    dbc.Collapse(
+        dbc.Card(dbc.CardBody([
+            html.P("The term 'fallen officers' refers to police officers and K9s who have lost their lives while serving their communities."),
+            html.P("These deaths occur under various circumstances, including violent confrontations, vehicular incidents, medical emergencies, and ambush attacks."),
+            html.P([
+                "According to the ", html.Strong("Officer Down Memorial Page (ODMP)"),
+                ", the number of fallen officers has fluctuated over time due to shifts in crime rates, public safety policies, and broader social factors."
+            ]),
+            html.P("While every loss is tragic, understanding these trends helps in shaping better policies and safety measures for law enforcement personnel."),
+            html.Blockquote(
+                html.P("When a police officer is killed, it's not an agency that loses an officer, it's an entire nation."),
+                className="blockquote text-muted"
+            ),
+            html.Footer("— Chris Cosgriff, ODMP Founder", className="blockquote-footer")
+        ])),
+        id="about-officers-collapse", is_open=False
+    )
+])
+
+# Section: About the Data
+about_data = html.Div([
+    dbc.Button(
+        "About the Data", id="about-data-toggle", color="link", className="mb-2 fw-bold"
+    ),
+    dbc.Collapse(
+        dbc.Card(dbc.CardBody([
+            html.P([
+                "Our dataset consists of approximately ", html.Strong("22,800 records"),
+                " documenting police deaths in U.S. history from ", html.Strong("1791 to 2016"), "."
+            ]),
+            html.P([
+                "The data is sourced from the ", html.Strong("Officer Down Memorial Page (ODMP)"),
+                ", a project started in 1996 by a college student who later became a police officer."
+            ]),
+            html.P([
+                "This dataset is publicly available on the ", 
+                html.A("FiveThirtyEight GitHub repository", href="https://github.com/fivethirtyeight/data", target="_blank"),
+                " and was used in their analysis, ", html.Em("“The Dallas Shooting Was Among The Deadliest For Police In U.S. History.”")
+            ]),
+            html.P("The dataset captures details about fallen officers, including:"),
+            html.Ul([
+                html.Li(html.Strong("Officer Information:") + " Name, department, and End of Watch (EOW) date."),
+                html.Li(html.Strong("Circumstances:") + " Cause of death (detailed and categorized)."),
+                html.Li(html.Strong("Location:") + " State and year of incident."),
+                html.Li(html.Strong("Canine Officers:") + " A flag to identify cases involving police dogs (K9s).")
+            ])
+        ])),
+        id="about-data-collapse", is_open=False
+    )
+])
+
 # =================================================
 # 9. Summary stats area
 # =================================================
