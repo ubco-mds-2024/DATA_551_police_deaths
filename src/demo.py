@@ -100,7 +100,7 @@ def create_bar_chart(data, x_col, y_col, title, y_axis_label="Category"):
                 alt.Tooltip(y_col, title=y_axis_label)
             ]
         )
-        .properties(title=title, width=150, height=300)
+        .properties(title=title, width=230, height=300)
     )
     return chart
 
@@ -119,7 +119,7 @@ def create_time_series(data, x_col, y_col, title):
                 alt.Tooltip(y_col, title="Deaths", format=",")
             ]
         )
-        .properties(title=title, width=700, height=300)
+        .properties(title=title, width=800, height=300)
     )
     return chart
 
@@ -270,50 +270,61 @@ sidebar = html.Div([
     create_multiselect_dropdown('state-filter', state_options),
 ])
 
-footer_section = html.Div([
-    # About This Dashboard (Collapsible Section)
+# Section: About Fallen Officers
+about_fallen_officers = html.Div([
     dbc.Button(
-        "About This Dashboard", id="about-dashboard-btn", color="link", n_clicks=0,
-        style={"font-size": "16px", "text-decoration": "underline"}
+        "About Fallen Officers", id="about-officers-toggle", color="link", className="mb-2 fw-bold"
     ),
     dbc.Collapse(
-        html.P(
-            "This dashboard is designed to present objective data on police officer fatalities "
-            "with the utmost respect for those who have served. By visualizing historical trends, "
-            "it aims to honor fallen officers while fostering informed discussions on public service safety. "
-            "Our goal is to provide a fact-based perspective that helps researchers, policymakers, and educators "
-            "understand the risks faced by law enforcement officers and explore ways to improve officer safety.",
-            style={"font-size": "14px"}
-        ),
-        id="about-dashboard-collapse",
-        is_open=False,
-    ),
-
-    # About the Data (Collapsible Section)
-    dbc.Button(
-        "About the Data", id="about-data-btn", color="link", n_clicks=0,
-        style={"font-size": "16px", "margin-top": "10px", "text-decoration": "underline"}
-    ),
-    dbc.Collapse(
-        html.Div([
-            html.P(
-                "The dataset contains approximately 22,800 records of police fatalities, sourced from the "
-                "Officer Down Memorial Page (ODMP) and publicly available via the FiveThirtyEight GitHub repository. "
-                "It includes details such as officer names, departments, causes of death, and locations. "
-                "The data also distinguishes between human officers and police canines (K9s) for comparative analysis.",
-                style={"font-size": "14px"}
+        dbc.Card(dbc.CardBody([
+            html.P("The term 'fallen officers' refers to police officers and K9s who have lost their lives while serving their communities."),
+            html.P("These deaths occur under various circumstances, including violent confrontations, vehicular incidents, medical emergencies, and ambush attacks."),
+            html.P([
+                "According to the ", html.Strong("Officer Down Memorial Page (ODMP)"),
+                ", the number of fallen officers has fluctuated over time due to shifts in crime rates, public safety policies, and broader social factors."
+            ]),
+            html.P("While every loss is tragic, understanding these trends helps in shaping better policies and safety measures for law enforcement personnel."),
+            html.Blockquote(
+                html.P("When a police officer is killed, it's not an agency that loses an officer, it's an entire nation."),
+                className="blockquote text-muted"
             ),
-            html.A(
-                "View the dataset on FiveThirtyEight’s GitHub repository",
-                href="https://github.com/fivethirtyeight/data",
-                target="_blank",
-                style={"font-size": "14px", "color": "blue", "text-decoration": "underline"}
-            )
-        ]),
-        id="about-data-collapse",
-        is_open=False,
+            html.Footer("— Chris Cosgriff, ODMP Founder", className="blockquote-footer")
+        ])),
+        id="about-officers-collapse", is_open=False
     )
-], style={"text-align": "left", "padding": "10px"})
+])
+
+# Section: About the Data
+about_data = html.Div([
+    dbc.Button(
+        "About the Data", id="about-data-toggle", color="link", className="mb-2 fw-bold"
+    ),
+    dbc.Collapse(
+        dbc.Card(dbc.CardBody([
+            html.P([
+                "Our dataset consists of approximately ", html.Strong("22,800 records"),
+                " documenting police deaths in U.S. history from ", html.Strong("1791 to 2016"), "."
+            ]),
+            html.P([
+                "The data is sourced from the ", html.Strong("Officer Down Memorial Page (ODMP)"),
+                ", a project started in 1996 by a college student who later became a police officer."
+            ]),
+            html.P([
+                "This dataset is publicly available on the ", 
+                html.A("FiveThirtyEight GitHub repository", href="https://github.com/fivethirtyeight/data", target="_blank"),
+                " and was used in their analysis, ", html.Em("“The Dallas Shooting Was Among The Deadliest For Police In U.S. History.”")
+            ]),
+            html.P("The dataset captures details about fallen officers, including:"),
+            html.Ul([
+                html.Li(html.Strong("Officer Information:"), " Name, department, and End of Watch (EOW) date."),
+                html.Li(html.Strong("Circumstances:"), " Cause of death (detailed and categorized)."),
+                html.Li(html.Strong("Location:"), " State and year of incident."),
+                html.Li(html.Strong("Canine Officers:"), " A flag to identify cases involving police dogs (K9s).")
+            ])
+        ])),
+        id="about-data-collapse", is_open=False
+    )
+])
 
 # =================================================
 # 9. Summary stats area
@@ -345,7 +356,9 @@ app.layout = dbc.Container([
         dbc.Col([
             sidebar,  # Existing filters
             html.Hr(),  # Separator line
-            footer_section  # Footer Section (Collapsible Buttons)
+            about_fallen_officers,
+            html.Hr(),  # Separator line
+            about_data    # Footer Section (Collapsible Buttons)
         ], width=2, style={"border-right": "1px solid #ccc", "padding-right": "12px"}),
 
         # Right Side: Stats + Charts
@@ -354,38 +367,43 @@ app.layout = dbc.Container([
             dbc.Row([
                 dbc.Col(dbc.Card([
                     dbc.CardBody([
-                        html.H5("Total Deaths", className="card-title text-center"),
-                        html.P(id="total-deaths", className="card-text text-center")
-                    ])
-                ], className="h-100"), width={"xs": 12, "sm": 6, "md": 3, "lg": 2}),
+                        html.H2(id="total-deaths", className="text-center fw-bold"),  
+                        html.P([html.Strong("TOTAL DEATHS"), html.Br(), "Selected Period"],  
+                            className="text-center text-muted mb-0")
+                    ], className="d-flex flex-column justify-content-center align-items-center")
+                ], className="h-100 shadow-sm"), width={"xs": 12, "sm": 6, "md": 3, "lg": 2}),  
 
                 dbc.Col(dbc.Card([
                     dbc.CardBody([
-                        html.H5("Average Deaths per Year", className="card-title text-center"),
-                        html.P(id="avg-deaths", className="card-text text-center")
-                    ])
-                ], className="h-100"), width={"xs": 12, "sm": 6, "md": 3, "lg": 2}),
+                        html.H2(id="avg-deaths", className="text-center fw-bold"),
+                        html.P([html.Strong("AVG. DEATHS"), html.Br(), "Per Year", html.Br(), "Selected Period"],  
+                            className="text-center text-muted mb-0")
+                    ], className="d-flex flex-column justify-content-center align-items-center")
+                ], className="h-100 shadow-sm"), width={"xs": 12, "sm": 6, "md": 3, "lg": 2}),
 
                 dbc.Col(dbc.Card([
                     dbc.CardBody([
-                        html.H5("Deaths in the Last 10 Years", className="card-title text-center"),
-                        html.P(id="deaths-last-10", className="card-text text-center")
-                    ])
-                ], className="h-100"), width={"xs": 12, "sm": 6, "md": 3, "lg": 2}),
+                        html.H2(id="deaths-last-10", className="text-center fw-bold"),
+                        html.P(["Deaths", html.Br(), html.Strong("LAST 10 YEARS"), html.Br(), "of Selection"],  
+                            className="text-center text-muted mb-0")
+                    ], className="d-flex flex-column justify-content-center align-items-center")
+                ], className="h-100 shadow-sm"), width={"xs": 12, "sm": 6, "md": 3, "lg": 2}),
 
                 dbc.Col(dbc.Card([
                     dbc.CardBody([
-                        html.H5("Deaths in the Last 5 Years", className="card-title text-center"),
-                        html.P(id="deaths-last-5", className="card-text text-center")
-                    ])
-                ], className="h-100"), width={"xs": 12, "sm": 6, "md": 3, "lg": 2}),
+                        html.H2(id="deaths-last-5", className="text-center fw-bold"),
+                        html.P(["Deaths", html.Br(), html.Strong("LAST 5 YEARS"), html.Br(), "of Selection"],  
+                            className="text-center text-muted mb-0")
+                    ], className="d-flex flex-column justify-content-center align-items-center")
+                ], className="h-100 shadow-sm"), width={"xs": 12, "sm": 6, "md": 3, "lg": 2}),
 
                 dbc.Col(dbc.Card([
                     dbc.CardBody([
-                        html.H5("Deaths in the Last Year", className="card-title text-center"),
-                        html.P(id="deaths-last-year", className="card-text text-center")
-                    ])
-                ], className="h-100"), width={"xs": 12, "sm": 6, "md": 3, "lg": 2})
+                        html.H2(id="deaths-last-year", className="text-center fw-bold"),
+                        html.P(["Deaths", html.Br(), html.Strong("LAST YEAR"), html.Br(), "of Selection"],  
+                            className="text-center text-muted mb-0")
+                    ], className="d-flex flex-column justify-content-center align-items-center")
+                ], className="h-100 shadow-sm"), width={"xs": 12, "sm": 6, "md": 3, "lg": 2})
             ], className="mb-3 align-items-stretch"),
 
             # Charts Row
@@ -465,22 +483,22 @@ def update_state_filter(selected_values):
     return selected_values
 
 @app.callback(
-    Output("about-dashboard-collapse", "is_open"),
-    Input("about-dashboard-btn", "n_clicks"),
-    State("about-dashboard-collapse", "is_open")
+    Output("about-officers-collapse", "is_open"),
+    Input("about-officers-toggle", "n_clicks"),
+    State("about-officers-collapse", "is_open")
 )
-def toggle_about_dashboard(n_clicks, is_open):
-    if n_clicks % 2 == 1:
+def toggle_about_officers(n_clicks, is_open):
+    if n_clicks:
         return not is_open
     return is_open
 
 @app.callback(
     Output("about-data-collapse", "is_open"),
-    Input("about-data-btn", "n_clicks"),
+    Input("about-data-toggle", "n_clicks"),
     State("about-data-collapse", "is_open")
 )
 def toggle_about_data(n_clicks, is_open):
-    if n_clicks % 2 == 1:
+    if n_clicks:
         return not is_open
     return is_open
 
