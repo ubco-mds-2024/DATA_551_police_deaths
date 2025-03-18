@@ -6,7 +6,14 @@ Our dashboard has seen significant improvements, making it more intuitive and ef
 
 ### Improved Summary Statistics
 
-We have introduced a dynamic statistical summary that calculates deaths over different time periods, including the last year, last five years, and last ten years. This update ensures that users can easily access relevant data based on the latest available year without needing to manually adjust filters.
+We have enhanced the statistical summary to dynamically reflect key metrics based on the user's selected time range. The statistics now dynamically adjust based on the user-selected time range, ensuring that insights are always relevant to the specified period without requiring additional manual calculations.
+
+The summary includes:
+
+- Total Deaths within the selected period.
+- Average Deaths Per Year calculated based on the selected time range.
+- Deaths in the Last 10 Years within the selected period (e.g., if the selected range is 2000–2015, this metric reflects deaths from 2006–2015).
+- Deaths in the Last 5 Years within the selected period (e.g., for 2000–2015, this covers deaths from 2011–2015).
 
 ### Enhanced Filtering & Selection Logic
 
